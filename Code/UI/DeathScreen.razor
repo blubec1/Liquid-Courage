@@ -1,0 +1,178 @@
+@using Sandbox;
+@using Sandbox.UI;
+@using DrunkenBarFight;
+@inherits PanelComponent
+@namespace DrunkenBarFight
+
+<root>
+	<div class="death-root @(Visible ? "visible" : "")">
+		<div class="panel">
+			<div class="title">@TitleText</div>
+
+			<div class="stats">
+				<div class="stat-row"><div class="label">Score</div><div class="value">@ScoreText</div></div>
+				<div class="stat-row"><div class="label">Highest Combo</div><div class="value">@HighestComboText</div></div>
+				<div class="stat-row"><div class="label">Peak Drunkenness</div><div class="value">@HighestDrunkText</div></div>
+				<div class="stat-row"><div class="label">Finishers Used</div><div class="value">@FinishersText</div></div>
+				<div class="stat-row"><div class="label">Enemies Defeated</div><div class="value">@EnemiesText</div></div>
+				<div class="stat-row"><div class="label">Survival Time</div><div class="value">@SurvivalText</div></div>
+				<div class="stat-row"><div class="label">Milestone Reached</div><div class="value">@MilestoneText</div></div>
+				<div class="stat-row leaderboard"><div class="label">Leaderboard</div><div class="value">@LeaderboardText</div></div>
+			</div>
+
+			<div class="play-again-button" onclick="@RestartClicked">@RestartLabel</div>
+		</div>
+	</div>
+</root>
+
+@code
+{
+	public bool Visible => GameManager.Instance?.State == RunState.Dead;
+
+	public string TitleText => (GameManager.Instance?.CurrentRunStats?.DiedFromOverdrunk ?? false)
+		? "TOO DRUNK TO CONTINUE"
+		: "THROWN OUT OF THE BAR";
+
+	RunStats Stats => GameManager.Instance?.CurrentRunStats;
+
+	public string ScoreText => $"{(Stats?.FinalScore ?? 0):N0}";
+	public string HighestComboText => $"{(Stats?.HighestCombo ?? 0):0}";
+	public string HighestDrunkText => $"{System.Math.Clamp( Stats?.HighestDrunkenness ?? 0, 0, 100 ):0}%";
+	public string FinishersText => $"{Stats?.FinishersUsed ?? 0}";
+	public string EnemiesText => $"{Stats?.EnemiesDefeated ?? 0}";
+	public string SurvivalText => FormatTime( Stats?.SurvivalTime ?? 0 );
+	public string MilestoneText => $"{Stats?.MilestoneReached ?? 0}";
+
+	public string LeaderboardText
+	{
+		get
+		{
+			if ( Stats is null )
+				return "";
+
+			if ( !Stats.LeaderboardAttempted )
+				return "Submitting...";
+
+			if ( Stats.LeaderboardRank is null )
+				return "Unavailable";
+
+			return $"#{Stats.LeaderboardRank} of {Stats.LeaderboardTotalPlayers ?? Stats.LeaderboardRank}";
+		}
+	}
+
+	public string RestartLabel => (GameManager.Instance?.CanRestartYet ?? false) ? "PLAY AGAIN" : "...";
+
+	static string FormatTime( float seconds )
+	{
+		var m = (int)(seconds / 60);
+		var s = (int)(seconds % 60);
+		return $"{m:00}:{s:00}";
+	}
+
+	void RestartClicked()
+	{
+		if ( GameManager.Instance?.CanRestartYet == true )
+			GameManager.Instance.RestartRun();
+	}
+
+	// Same reason as Hud.razor - without this, the panel never notices the run ended and
+	// would just sit invisible forever, even after death.
+	protected override int BuildHash()
+	{
+		return System.HashCode.Combine(
+			Visible,
+			Stats?.FinalScore,
+			Stats?.LeaderboardAttempted,
+			Stats?.LeaderboardRank,
+			GameManager.Instance?.CanRestartYet );
+	}
+}
+
+<style>
+	.death-root {
+		width: 100%;
+		height: 100%;
+		position: absolute;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background-color: rgba(0,0,0,0.0);
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.4s ease;
+		font-family: Poppins;
+	}
+
+	.death-root.visible {
+		opacity: 1;
+		pointer-events: all;
+		background-color: rgba(0,0,0,0.65);
+	}
+
+	.panel {
+		width: 420px;
+		background-color: rgba(20,16,20,0.95);
+		border: 2px solid rgba(255,255,255,0.15);
+		border-radius: 10px;
+		padding: 28px 32px;
+		text-align: center;
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.title {
+		color: #ff4d4d;
+		font-size: 26px;
+		font-weight: 900;
+		letter-spacing: 2px;
+		margin-bottom: 18px;
+		text-shadow: 0 2px 8px black;
+	}
+
+	.stats {
+		margin-bottom: 22px;
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+	}
+
+	.stat-row {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		width: 100%;
+		padding: 4px 0;
+		border-bottom: 1px solid rgba(255,255,255,0.08);
+	}
+
+	.stat-row .label {
+		color: rgba(255,255,255,0.65);
+		font-size: 14px;
+	}
+
+	.stat-row .value {
+		color: white;
+		font-size: 14px;
+		font-weight: 700;
+	}
+
+	.stat-row.leaderboard .value {
+		color: #ffd257;
+	}
+
+	.play-again-button {
+		background-color: #e0303a;
+		color: white;
+		font-weight: 800;
+		font-size: 16px;
+		letter-spacing: 2px;
+		padding: 12px 0;
+		border-radius: 6px;
+		cursor: pointer;
+	}
+
+	.play-again-button:hover {
+		background-color: #ff4550;
+	}
+</style>

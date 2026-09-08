@@ -1,0 +1,334 @@
+@using Sandbox;
+@using Sandbox.UI;
+@using DrunkenBarFight;
+@inherits PanelComponent
+@namespace DrunkenBarFight
+
+<root>
+	<div class="hud-root">
+
+		<div class="vignette" style="opacity:@(VignetteOpacity);"></div>
+
+		<div class="top-left">
+			<div class="bar-label">HP</div>
+			<div class="hp-bar-bg">
+				<div class="hp-bar-fill" style="width:@(HpFraction * 100)%;"></div>
+			</div>
+			<div class="hp-text">@HpText</div>
+
+			<div class="bar-label combo-label">COMBO</div>
+			<div class="combo-bar-bg">
+				<div class="combo-bar-fill" style="width:@(ComboFraction * 100)%;"></div>
+			</div>
+			<div class="combo-text">@ComboText</div>
+		</div>
+
+		<div class="top-right">
+			<div class="score-text">@ScoreText</div>
+			<div class="multiplier-text">@MultiplierText MULT</div>
+		</div>
+
+		<div class="last-call-banner @(IsLastCall ? "visible" : "")">LAST CALL</div>
+
+		<div class="milestone-toast @(HasToast ? "visible" : "")">@ToastText</div>
+
+		<div class="crosshair-wrap" style="left:@(CrosshairXFraction * 100)%; top:@(CrosshairYFraction * 100)%;">
+			<div class="crosshair-dot"></div>
+			<div class="cooldown-bar-bg">
+				<div class="cooldown-bar-fill" style="width:@(CooldownFraction * 100)%;"></div>
+			</div>
+		</div>
+
+		<div class="finisher-reference">
+			<div class="finisher-title">FINISHERS</div>
+			@foreach ( var f in FinisherLibrary.All )
+			{
+				<div class="finisher-row">@f.Description &rarr; @f.Name</div>
+			}
+		</div>
+
+	</div>
+</root>
+
+@code
+{
+	public float HpFraction
+	{
+		get
+		{
+			var p = PlayerStats.Local;
+			if ( p is null || p.MaxHP <= 0 ) return 1f;
+			return System.Math.Clamp( p.CurrentHP / p.MaxHP, 0f, 1f );
+		}
+	}
+
+	public string HpText
+	{
+		get
+		{
+			var p = PlayerStats.Local;
+			return p is null ? "--" : $"{p.CurrentHP:0} / {p.MaxHP:0}";
+		}
+	}
+
+	public float ComboFraction => System.Math.Clamp( (ComboSystem.Local?.Value ?? 0f) / 150f, 0f, 1f );
+	public string ComboText => $"{(ComboSystem.Local?.Value ?? 0f):0}";
+
+	public string ScoreText => $"SCORE  {(ScoreSystem.Local?.Score ?? 0):N0}";
+	public string MultiplierText => $"x{(ScoreSystem.Local?.Multiplier ?? 1f):0.00}";
+
+	public bool IsLastCall => DrunkennessSystem.Local?.IsLastCall ?? false;
+
+	public float CooldownFraction => PlayerCombat.Local?.CooldownFraction01 ?? 1f;
+
+	// The HUD's ScreenPanel auto-scales its own coordinate space to a fixed virtual height, so
+	// raw Mouse.Position (real screen pixels) doesn't line up with panel-space px unless the real
+	// window happens to be exactly that height - that's what was causing the misalignment.
+	// Converting to a 0-1 fraction of the real screen and positioning with percentages instead of
+	// px sidesteps the scale factor entirely, since .hud-root is always 100% of the real screen.
+	public float CrosshairXFraction => Screen.Width > 0 ? Mouse.Position.x / Screen.Width : 0.5f;
+	public float CrosshairYFraction => Screen.Height > 0 ? Mouse.Position.y / Screen.Height : 0.5f;
+
+	public float VignetteOpacity
+	{
+		get
+		{
+			var d = DrunkennessSystem.Local;
+			if ( d is null ) return 0f;
+
+			var t = System.Math.Clamp( d.Value / 100f, 0f, 1f );
+			var opacity = System.Math.Clamp( (t - 0.35f) / 0.65f, 0f, 1f ) * 0.55f;
+
+			if ( d.IsLastCall )
+				opacity += 0.15f * (System.MathF.Sin( Time.Now * 6f ) * 0.5f + 0.5f);
+
+			return System.Math.Clamp( opacity, 0f, 0.8f );
+		}
+	}
+
+	string _toastText = "";
+	float _toastEndTime = -999f;
+
+	public bool HasToast => Time.Now < _toastEndTime;
+	public string ToastText => _toastText;
+
+	protected override void OnStart()
+	{
+		GameEvents.Milestone += OnMilestone;
+	}
+
+	protected override void OnDestroy()
+	{
+		GameEvents.Milestone -= OnMilestone;
+	}
+
+	void OnMilestone( string text )
+	{
+		_toastText = text;
+		_toastEndTime = Time.Now + 3.5f;
+	}
+
+	// s&box Razor panels only rebuild when this hash changes - without it the HUD renders once
+	// and then never updates, no matter how much the underlying data changes.
+	protected override int BuildHash()
+	{
+		var h1 = System.HashCode.Combine(
+			PlayerStats.Local?.CurrentHP,
+			PlayerStats.Local?.MaxHP,
+			ComboSystem.Local?.Value,
+			ScoreSystem.Local?.Score,
+			ScoreSystem.Local?.Multiplier,
+			DrunkennessSystem.Local?.IsLastCall,
+			PlayerCombat.Local?.CooldownFraction01,
+			_toastText );
+
+		var h2 = System.HashCode.Combine(
+			HasToast,
+			CrosshairXFraction,
+			CrosshairYFraction,
+			VignetteOpacity );
+
+		return System.HashCode.Combine( h1, h2 );
+	}
+}
+
+<style>
+	.hud-root {
+		width: 100%;
+		height: 100%;
+		position: absolute;
+		font-family: Poppins;
+		pointer-events: none;
+	}
+
+	.vignette {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		background: radial-gradient( ellipse at center, transparent 55%, rgba(140,10,10,1) 140% );
+	}
+
+	.top-left {
+		position: absolute;
+		left: 32px;
+		top: 28px;
+		width: 340px;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.bar-label {
+		color: white;
+		font-size: 14px;
+		font-weight: 700;
+		letter-spacing: 2px;
+		text-shadow: 0 2px 4px black;
+	}
+
+	.combo-label {
+		margin-top: 14px;
+	}
+
+	.hp-bar-bg, .combo-bar-bg {
+		width: 100%;
+		height: 22px;
+		background-color: rgba(0,0,0,0.55);
+		border: 2px solid rgba(255,255,255,0.25);
+		border-radius: 4px;
+		overflow: hidden;
+		margin-top: 4px;
+	}
+
+	.hp-bar-fill {
+		height: 100%;
+		background-color: #e0303a;
+		transition: width 0.15s ease-out;
+	}
+
+	.combo-bar-fill {
+		height: 100%;
+		background-color: #f2b30f;
+		transition: width 0.1s ease-out;
+	}
+
+	.hp-text, .combo-text {
+		color: white;
+		font-size: 13px;
+		margin-top: 2px;
+		text-shadow: 0 2px 4px black;
+	}
+
+	.top-right {
+		position: absolute;
+		right: 32px;
+		top: 28px;
+		text-align: right;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+	}
+
+	.score-text {
+		color: white;
+		font-size: 30px;
+		font-weight: 800;
+		text-shadow: 0 2px 6px black;
+	}
+
+	.multiplier-text {
+		color: #ffd257;
+		font-size: 18px;
+		font-weight: 700;
+		text-shadow: 0 2px 4px black;
+	}
+
+	.last-call-banner {
+		position: absolute;
+		top: 90px;
+		left: 50%;
+		transform: translateX(-50%);
+		color: #ff3b3b;
+		font-size: 34px;
+		font-weight: 900;
+		letter-spacing: 6px;
+		text-shadow: 0 0 20px rgba(255,0,0,0.8);
+		opacity: 0;
+		transition: opacity 0.3s ease;
+	}
+
+	.last-call-banner.visible {
+		opacity: 1;
+	}
+
+	.milestone-toast {
+		position: absolute;
+		top: 140px;
+		left: 50%;
+		transform: translateX(-50%);
+		color: white;
+		font-size: 20px;
+		font-weight: 700;
+		text-shadow: 0 2px 6px black;
+		opacity: 0;
+		transition: opacity 0.4s ease;
+	}
+
+	.milestone-toast.visible {
+		opacity: 1;
+	}
+
+	.crosshair-wrap {
+		position: absolute;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		transform: translate(-50%, -50%);
+	}
+
+	.crosshair-dot {
+		width: 6px;
+		height: 6px;
+		background-color: white;
+		border-radius: 50%;
+		box-shadow: 0 0 4px black;
+	}
+
+	.cooldown-bar-bg {
+		width: 60px;
+		height: 6px;
+		background-color: rgba(0,0,0,0.5);
+		border-radius: 3px;
+		overflow: hidden;
+		margin-top: 8px;
+	}
+
+	.cooldown-bar-fill {
+		height: 100%;
+		background-color: #58e070;
+	}
+
+	.finisher-reference {
+		position: absolute;
+		left: 32px;
+		bottom: 28px;
+		background-color: rgba(0,0,0,0.4);
+		border-radius: 6px;
+		padding: 10px 14px;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.finisher-title {
+		color: #ffd257;
+		font-size: 12px;
+		font-weight: 800;
+		letter-spacing: 2px;
+		margin-bottom: 4px;
+	}
+
+	.finisher-row {
+		color: white;
+		font-size: 12px;
+		opacity: 0.85;
+	}
+</style>

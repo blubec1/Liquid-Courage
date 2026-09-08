@@ -1,0 +1,14 @@
+{
+  "Title": "Drunken Bar Fight",
+  "Type": "game",
+  "Org": "local",
+  "Ident": "drunken_bar_fight",
+  "Schema": 1,
+  "IncludeSourceFiles": false,
+  "Resources": null,
+  "PackageReferences": [],
+  "EditorReferences": null,
+  "Mounts": null,
+  "IsStandaloneOnly": false,
+  "Metadata": {}
+}
