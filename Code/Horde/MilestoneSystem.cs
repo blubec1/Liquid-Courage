@@ -46,7 +46,7 @@ public class MilestoneSystem : Component
 			return;
 
 		_announcedLastCallThisRun = true;
-		GameEvents.RaiseMilestone( "LAST CALL - unstoppable, but one drink from the end." );
+		GameEvents.RaiseMilestone( "LAST CALL - one more drink could black you out." );
 	}
 
 	protected override void OnUpdate()

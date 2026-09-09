@@ -691,43 +691,178 @@
         },
         {
           "__type": "DrunkenBarFight.PlayerMovement",
-          "__guid": "11fda605-5593-4056-9de4-19b26dc237e1"
+          "__guid": "11fda605-5593-4056-9de4-19b26dc237e1",
+          "__enabled": true,
+          "Flags": 0,
+          "Acceleration": 14,
+          "BaseMoveSpeed": 260,
+          "Gravity": 800,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null
         },
         {
           "__type": "DrunkenBarFight.PlayerFacing",
-          "__guid": "6cb93730-f6c7-4d50-b1f8-51c51354cfb5"
+          "__guid": "6cb93730-f6c7-4d50-b1f8-51c51354cfb5",
+          "__enabled": true,
+          "Flags": 0,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null,
+          "TurnSpeed": 18
         },
         {
           "__type": "DrunkenBarFight.PlayerStats",
-          "__guid": "0b05ba6f-2a77-481f-b5fd-d8ebe3dbfab5"
+          "__guid": "0b05ba6f-2a77-481f-b5fd-d8ebe3dbfab5",
+          "__enabled": true,
+          "Flags": 0,
+          "MaxHP": 100,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null
         },
         {
           "__type": "DrunkenBarFight.PlayerCombat",
-          "__guid": "a31af325-b97b-4146-b522-7dd1089b9652"
+          "__guid": "a31af325-b97b-4146-b522-7dd1089b9652",
+          "__enabled": true,
+          "Flags": 0,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null
         },
         {
           "__type": "DrunkenBarFight.AttackStringSystem",
-          "__guid": "d9d8e638-e631-42c5-a700-29763b9f7f43"
+          "__guid": "d9d8e638-e631-42c5-a700-29763b9f7f43",
+          "__enabled": true,
+          "Flags": 0,
+          "FinisherGlobalCooldown": 1.1,
+          "MaxGapBetweenAttacks": 0.9,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null
         },
         {
           "__type": "DrunkenBarFight.ComboSystem",
-          "__guid": "4107fa0e-3025-475b-8d4e-9030421cacb8"
+          "__guid": "4107fa0e-3025-475b-8d4e-9030421cacb8",
+          "__enabled": true,
+          "Flags": 0,
+          "DamagedGracePenaltyFraction": 0.5,
+          "GraceTime": 2.2,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null
         },
         {
           "__type": "DrunkenBarFight.DrunkennessSystem",
-          "__guid": "f477d69a-0934-46e5-811b-73eab23a0259"
+          "__guid": "f477d69a-0934-46e5-811b-73eab23a0259",
+          "__enabled": true,
+          "Flags": 0,
+          "GlassAmount": 10,
+          "LastCallThreshold": 130,
+          "MaxAttackSpeedBonus": 0.3,
+          "MaxDamageDealtBonus": 1,
+          "MaxDamageTakenReduction": 0.5,
+          "MaxMoveSpeedBonus": 0.3,
+          "MaxValue": 150,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null,
+          "PassiveDecayAmount": 1,
+          "PassiveDecayInterval": 15
         },
         {
           "__type": "DrunkenBarFight.ScoreSystem",
-          "__guid": "967c0775-8610-4146-917b-845549c00d8e"
+          "__guid": "967c0775-8610-4146-917b-845549c00d8e",
+          "__enabled": true,
+          "Flags": 0,
+          "ComboMultiplierScale": 50,
+          "EnvironmentalKillBonusFlat": 10,
+          "KillScoreBase": 15,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null,
+          "SurvivalTickInterval": 5,
+          "SurvivalTickValue": 20
         },
         {
           "__type": "DrunkenBarFight.StyleSystem",
-          "__guid": "a8d1615a-e40e-4a62-9ac6-134e74a629dc"
+          "__guid": "a8d1615a-e40e-4a62-9ac6-134e74a629dc",
+          "__enabled": true,
+          "Flags": 0,
+          "ComboMaintainBonus": 0.2,
+          "ComboMaintainFloor": 40,
+          "EnvironmentalPulseAmount": 0.35,
+          "EnvironmentalPulseDuration": 2.5,
+          "FinisherPulseAmount": 0.5,
+          "FinisherPulseDuration": 3,
+          "MaxVarietyBonus": 0.3,
+          "MultiKillPulseDuration": 2.5,
+          "MultiKillPulsePerKill": 0.25,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null,
+          "VarietyBonusPerStreak": 0.06
         },
         {
           "__type": "DrunkenBarFight.PlayerAnimationDriver",
-          "__guid": "cf1bcf46-53f8-48e8-b57c-c4e3f6cb6711"
+          "__guid": "cf1bcf46-53f8-48e8-b57c-c4e3f6cb6711",
+          "__enabled": true,
+          "Flags": 0,
+          "AnimHelper": null,
+          "LungeDistance": 14,
+          "ModelPivot": null,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null,
+          "SquashAmount": 0.12
+        },
+        {
+          "__type": "DrunkenBarFight.DrinkMeter",
+          "__guid": "1c9d8a2e-4f6b-4a7c-9d3e-2b8f5a6c7d9e",
+          "__enabled": true,
+          "Flags": 0,
+          "DrinkAnimation": "",
+          "DrinkAnimationDuration": 0.9,
+          "FreezeDuration": 0.9,
+          "MaxValue": 100,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null,
+          "ProgressPerKill": 22,
+          "ProgressPerToughKillBonus": 15
         }
       ],
       "Children": [
@@ -923,7 +1058,17 @@
         },
         {
           "__type": "DrunkenBarFight.IsoCameraRig",
-          "__guid": "4fa53b85-38a3-43d5-a87d-ef6e0342420f"
+          "__guid": "4fa53b85-38a3-43d5-a87d-ef6e0342420f",
+          "__enabled": true,
+          "Flags": 0,
+          "FollowLerp": 9,
+          "Offset": "-500,-500,600",
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null
         }
       ],
       "Children": []
@@ -946,20 +1091,70 @@
       "Components": [
         {
           "__type": "DrunkenBarFight.GameManager",
-          "__guid": "f0d1c53d-845a-4331-9aaf-d044c4c6a686"
+          "__guid": "f0d1c53d-845a-4331-9aaf-d044c4c6a686",
+          "__enabled": true,
+          "Flags": 0,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null,
+          "RestartInputDelay": 0.5
         },
         {
           "__type": "DrunkenBarFight.MilestoneSystem",
-          "__guid": "6b633821-1ea8-4a45-89bc-14286a9de716"
+          "__guid": "6b633821-1ea8-4a45-89bc-14286a9de716",
+          "__enabled": true,
+          "Flags": 0,
+          "ExtraMilestoneBaseBonus": 300,
+          "ExtraMilestoneBonusPerWave": 50,
+          "ExtraMilestoneInterval": 45,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null
         },
         {
           "__type": "DrunkenBarFight.HordeSpawner",
           "__guid": "accc2ddf-3da5-4017-bf62-6778b52e89cb",
-          "SpawnRingRadius": 800
+          "__enabled": true,
+          "Flags": 0,
+          "BruiserChance": 0.2,
+          "BruiserUnlockTime": 45,
+          "GroundZ": 0,
+          "GuaranteedSoberingInterval": 20,
+          "MaxAliveEnemies": 18,
+          "MinSpawnInterval": 0.9,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null,
+          "SoberingChance": 0.15,
+          "SpawnIntervalRampSeconds": 180,
+          "SpawnRingRadius": 800,
+          "StartSpawnInterval": 3.2
         },
         {
           "__type": "DrunkenBarFight.PickupSpawner",
-          "__guid": "19fee0f9-6138-4c5d-9c39-19b7dfc9af08"
+          "__guid": "19fee0f9-6138-4c5d-9c39-19b7dfc9af08",
+          "__enabled": true,
+          "Flags": 0,
+          "GroundZ": 0,
+          "IntervalJitter": 4,
+          "MaxConcurrentPickups": 2,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null,
+          "SpawnAreaRadius": 480,
+          "SpawnInterval": 14
         }
       ],
       "Children": []
@@ -1001,7 +1196,15 @@
         },
         {
           "__type": "DrunkenBarFight.Hud",
-          "__guid": "170912e6-7c7d-4ed8-9479-d3e90966894b"
+          "__guid": "170912e6-7c7d-4ed8-9479-d3e90966894b",
+          "__enabled": true,
+          "Flags": 0,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null
         }
       ],
       "Children": []
@@ -1043,7 +1246,15 @@
         },
         {
           "__type": "DrunkenBarFight.DeathScreen",
-          "__guid": "8ba296b4-c7fe-4c1f-addc-19318c7ffef7"
+          "__guid": "8ba296b4-c7fe-4c1f-addc-19318c7ffef7",
+          "__enabled": true,
+          "Flags": 0,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null
         }
       ],
       "Children": []
@@ -1066,7 +1277,22 @@
       "Components": [
         {
           "__type": "DrunkenBarFight.ThrowableBottle",
-          "__guid": "c8063cfa-3f25-48d2-8c4b-945d870a4628"
+          "__guid": "c8063cfa-3f25-48d2-8c4b-945d870a4628",
+          "__enabled": true,
+          "Flags": 0,
+          "InteractRadius": 75,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null,
+          "RespawnDelay": 8,
+          "ThrowDamage": 24,
+          "ThrowKnockback": 260,
+          "ThrowRange": 650,
+          "ThrowSpeed": 900,
+          "Visual": null
         }
       ],
       "Children": [
@@ -1136,7 +1362,22 @@
       "Components": [
         {
           "__type": "DrunkenBarFight.ThrowableBottle",
-          "__guid": "2838d959-d2f7-4799-bb54-9824c1d1e8e9"
+          "__guid": "2838d959-d2f7-4799-bb54-9824c1d1e8e9",
+          "__enabled": true,
+          "Flags": 0,
+          "InteractRadius": 75,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null,
+          "RespawnDelay": 8,
+          "ThrowDamage": 24,
+          "ThrowKnockback": 260,
+          "ThrowRange": 650,
+          "ThrowSpeed": 900,
+          "Visual": null
         }
       ],
       "Children": [
@@ -1206,7 +1447,22 @@
       "Components": [
         {
           "__type": "DrunkenBarFight.ThrowableBottle",
-          "__guid": "51823f7d-96d1-4041-8d85-9876334eb46a"
+          "__guid": "51823f7d-96d1-4041-8d85-9876334eb46a",
+          "__enabled": true,
+          "Flags": 0,
+          "InteractRadius": 75,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null,
+          "RespawnDelay": 8,
+          "ThrowDamage": 24,
+          "ThrowKnockback": 260,
+          "ThrowRange": 650,
+          "ThrowSpeed": 900,
+          "Visual": null
         }
       ],
       "Children": [
@@ -1261,6 +1517,7 @@
   ],
   "SceneProperties": {
     "NetworkInterpolation": true,
+    "PhysicsMode": "Physics3D",
     "TimeScale": 1,
     "WantsSystemScene": true,
     "Metadata": {

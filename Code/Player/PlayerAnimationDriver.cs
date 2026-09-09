@@ -33,6 +33,11 @@ public class PlayerAnimationDriver : Component
 	float _swingStrength = 0.5f;
 	bool _usingClipVisual;
 
+	float _drinkStartTime = -999f;
+	float _drinkDuration = 0.9f;
+	bool _isDrinkingVisual;
+	bool _usingDrinkClipVisual;
+
 	bool _sequenceActive;
 	float _sequenceRevertTime;
 
@@ -59,6 +64,7 @@ public class PlayerAnimationDriver : Component
 		DriveLocomotion();
 		DriveSequenceRevert();
 		DriveAttackVisual();
+		DriveDrinkVisual();
 	}
 
 	void DriveLocomotion()
@@ -88,6 +94,16 @@ public class PlayerAnimationDriver : Component
 		_swingStrength = 1.2f;
 
 		_usingClipVisual = TryPlaySequence( def.Animation, _swingDuration );
+	}
+
+	/// <summary>Called by DrinkMeter the instant a glass is triggered - plays the "chug" beat.</summary>
+	public void PlayDrink( string animName, float duration )
+	{
+		_drinkStartTime = Time.Now;
+		_drinkDuration = System.MathF.Max( 0.2f, duration );
+		_isDrinkingVisual = true;
+
+		_usingDrinkClipVisual = TryPlaySequence( animName, _drinkDuration );
 	}
 
 	/// <summary>
@@ -179,5 +195,38 @@ public class PlayerAnimationDriver : Component
 
 		var squash = 1f + SquashAmount * _swingStrength * curve;
 		ModelPivot.LocalScale = new Vector3( squash, 1f / squash * 0.5f + 0.5f, 1f / squash * 0.5f + 0.5f );
+	}
+
+	/// <summary>Procedural "chug" fallback: tilts the model back and dips it slightly, distinct from
+	/// the attack lunge curve. Skipped if a real Animation clip took over via TryPlaySequence.</summary>
+	void DriveDrinkVisual()
+	{
+		if ( !_isDrinkingVisual || ModelPivot is null )
+			return;
+
+		var t = (Time.Now - _drinkStartTime) / _drinkDuration;
+
+		if ( t > 1f )
+		{
+			_isDrinkingVisual = false;
+			try { ModelPivot.LocalRotation = Rotation.Identity; } catch { }
+			return;
+		}
+
+		if ( _usingDrinkClipVisual )
+			return;
+
+		// Tilt back and hold, then recover - a "head back, chugging" read.
+		var curve = t < 0.4f ? (t / 0.4f) : 1f - ((t - 0.4f) / 0.6f);
+
+		try
+		{
+			ModelPivot.LocalRotation = Rotation.FromPitch( -25f * curve );
+			ModelPivot.LocalPosition = Vector3.Down * (4f * curve);
+		}
+		catch
+		{
+			// Rotation.FromPitch shape mismatch or similar - not fatal, just skip the tilt this frame.
+		}
 	}
 }

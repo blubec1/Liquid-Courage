@@ -3,67 +3,109 @@ using System;
 namespace DrunkenBarFight;
 
 /// <summary>
-/// The hidden risk/reward core of the game. Never render Value directly in the HUD - only
-/// react to IsLastCall and the power-scaling multipliers below, so the player has to feel
-/// their way through it rather than watch a number.
+/// The hidden risk/reward core of the game. Never render Value directly in the HUD - only react
+/// to IsLastCall/BlackoutFraction01 and the power-scaling multipliers below (see Hud.razor's VFX),
+/// so the player feels their way through it rather than watching a number.
 ///
-/// Drunkenness only rises when the combo meter crosses a threshold (see ComboSystem), never
-/// directly from taking damage or from kills. It only falls from sobering enemies/pickups.
-/// Hitting the max ends the run immediately, with no grace period.
+/// Drunkenness now ONLY rises when DrinkMeter fills up and calls DrinkGlass() (see DrinkMeter.cs) -
+/// never directly from combo, damage, or kills. It falls slowly on its own over time, and faster
+/// from sobering enemies/pickups. Crossing MaxValue on a drink ends the run immediately.
 /// </summary>
 public class DrunkennessSystem : Component
 {
 	public static DrunkennessSystem Local { get; private set; }
 
-	[Property, Group( "Tuning" )] public float IncreasePerThreshold { get; set; } = 12f;
-	[Property, Group( "Tuning" )] public float LastCallThreshold { get; set; } = 78f;
-	[Property, Group( "Tuning" )] public float MaxValue { get; set; } = 100f;
+	[Property, Group( "Tuning" )] public float MaxValue { get; set; } = 150f;
+	[Property, Group( "Tuning" )] public float GlassAmount { get; set; } = 10f;
+	[Property, Group( "Tuning" )] public float LastCallThreshold { get; set; } = 130f;
+	[Property, Group( "Tuning" )] public float PassiveDecayAmount { get; set; } = 1f;
+	[Property, Group( "Tuning" )] public float PassiveDecayInterval { get; set; } = 15f;
 
-	[Property, Group( "Power Scaling" )] public float MaxMoveSpeedBonus { get; set; } = 0.5f;
-	[Property, Group( "Power Scaling" )] public float MaxAttackSpeedBonus { get; set; } = 0.35f;
-	[Property, Group( "Power Scaling" )] public float MaxDamageBonus { get; set; } = 0.6f;
-	[Property, Group( "Power Scaling" )] public float LastCallExtraBonus { get; set; } = 0.2f;
+	[Property, Group( "Power Scaling" )] public float MaxDamageDealtBonus { get; set; } = 1.0f;
+	[Property, Group( "Power Scaling" )] public float MaxDamageTakenReduction { get; set; } = 0.5f;
+	[Property, Group( "Power Scaling" )] public float MaxMoveSpeedBonus { get; set; } = 0.3f;
+	[Property, Group( "Power Scaling" )] public float MaxAttackSpeedBonus { get; set; } = 0.3f;
 
 	public float Value { get; private set; }
 	public float HighestValue { get; private set; }
+	public int GlassesDrunk { get; private set; }
 
-	public bool IsLastCall => Value >= LastCallThreshold && Value < MaxValue;
+	/// <summary>The "one drink from blackout" danger zone - this is what the screen-edge VFX reacts to.</summary>
+	public bool IsLastCall => Value >= LastCallThreshold;
 
 	float NormalizedT => Math.Clamp( Value / MaxValue, 0f, 1f );
 
-	public float MoveSpeedMultiplier => 1f + NormalizedT * MaxMoveSpeedBonus + (IsLastCall ? LastCallExtraBonus * 0.5f : 0f);
-	public float AttackCooldownMultiplier => Math.Clamp( 1f - NormalizedT * MaxAttackSpeedBonus - (IsLastCall ? LastCallExtraBonus * 0.3f : 0f), 0.4f, 1f );
-	public float DamageMultiplier => 1f + NormalizedT * MaxDamageBonus + (IsLastCall ? LastCallExtraBonus : 0f);
+	/// <summary>0 below LastCallThreshold, ramps to 1 as Value approaches MaxValue. Drives the blackout tunnel-vision VFX.</summary>
+	public float BlackoutFraction01 => MaxValue > LastCallThreshold
+		? Math.Clamp( (Value - LastCallThreshold) / (MaxValue - LastCallThreshold), 0f, 1f )
+		: 0f;
+
+	public float MoveSpeedMultiplier => 1f + NormalizedT * MaxMoveSpeedBonus;
+	public float AttackCooldownMultiplier => Math.Clamp( 1f - NormalizedT * MaxAttackSpeedBonus, 0.4f, 1f );
+
+	/// <summary>Damage the player deals is multiplied by this - climbs toward +100% at max drunkenness.</summary>
+	public float DamageMultiplier => 1f + NormalizedT * MaxDamageDealtBonus;
+
+	/// <summary>Damage the player takes is multiplied by this - drops toward -50% at max drunkenness.</summary>
+	public float DamageTakenMultiplier => Math.Clamp( 1f - NormalizedT * MaxDamageTakenReduction, 0.05f, 1f );
 
 	/// <summary>Additive bonus folded into ScoreSystem's multiplier formula.</summary>
 	public float ScoreMultiplierBonus => NormalizedT * 1.2f + (IsLastCall ? 1f : 0f);
 
+	float _decayTimer;
+
 	protected override void OnAwake()
 	{
 		Local = this;
-		GameEvents.ComboThresholdReached += OnComboThreshold;
 	}
 
-	protected override void OnDestroy()
+	protected override void OnUpdate()
 	{
-		GameEvents.ComboThresholdReached -= OnComboThreshold;
+		if ( GameManager.Instance is not null && GameManager.Instance.State != RunState.Playing )
+			return;
+
+		// DEV ONLY - quick keys to test drunkenness thresholds/overdrunk without grinding kills.
+		// M = drink a glass (+10, same code path a real drink uses - triggers the toast/flash too).
+		// N = sober up a glass (-10). Remove both before shipping. Uses raw keyboard, not an
+		// Input.config action, since these are debug-only and shouldn't be player-rebindable.
+		try
+		{
+			if ( Sandbox.Input.Keyboard.Pressed( "M" ) )
+				DrinkGlass();
+			if ( Sandbox.Input.Keyboard.Pressed( "N" ) )
+				Reduce( GlassAmount );
+		}
+		catch { }
+
+		if ( Value <= 0f )
+		{
+			_decayTimer = 0f;
+			return;
+		}
+
+		_decayTimer += Time.Delta;
+		if ( _decayTimer >= PassiveDecayInterval )
+		{
+			_decayTimer -= PassiveDecayInterval;
+			Reduce( PassiveDecayAmount );
+		}
 	}
 
-	void OnComboThreshold( int index )
+	/// <summary>The ONLY way drunkenness goes up. Called by DrinkMeter once it fills. Deliberately not
+	/// clamped to MaxValue on the way in - overshooting past MaxValue is exactly what ends the run.</summary>
+	public void DrinkGlass()
 	{
-		Increase( IncreasePerThreshold );
-	}
-
-	public void Increase( float amount )
-	{
-		if ( amount <= 0 || (GameManager.Instance is not null && GameManager.Instance.State != RunState.Playing) )
+		if ( GameManager.Instance is not null && GameManager.Instance.State != RunState.Playing )
 			return;
 
 		var wasLastCall = IsLastCall;
-		Value = Math.Clamp( Value + amount, 0f, MaxValue );
+		GlassesDrunk++;
+		Value += GlassAmount;
 		HighestValue = MathF.Max( HighestValue, Value );
 
-		if ( Value >= MaxValue )
+		GameEvents.RaiseDrinkTriggered( GlassesDrunk );
+
+		if ( Value > MaxValue )
 		{
 			GameEvents.RaiseOverdrunk();
 			GameManager.Instance?.EndRun( EndReason.Overdrunk );
@@ -73,14 +115,14 @@ public class DrunkennessSystem : Component
 		CheckLastCallTransition( wasLastCall );
 	}
 
-	/// <summary>Called by sobering enemy deaths / sobering pickups.</summary>
+	/// <summary>Called by sobering enemy deaths, sobering pickups, and passive decay.</summary>
 	public void Reduce( float amount )
 	{
 		if ( amount <= 0 )
 			return;
 
 		var wasLastCall = IsLastCall;
-		Value = Math.Clamp( Value - amount, 0f, MaxValue );
+		Value = Math.Max( 0f, Value - amount );
 		CheckLastCallTransition( wasLastCall );
 	}
 
@@ -96,5 +138,7 @@ public class DrunkennessSystem : Component
 	{
 		Value = 0;
 		HighestValue = 0;
+		GlassesDrunk = 0;
+		_decayTimer = 0f;
 	}
 }

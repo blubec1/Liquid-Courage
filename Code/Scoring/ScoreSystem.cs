@@ -13,7 +13,9 @@ public class ScoreSystem : Component
 	[Property, Group( "Tuning" )] public float EnvironmentalKillBonusFlat { get; set; } = 10f;
 	[Property, Group( "Tuning" )] public float SurvivalTickValue { get; set; } = 20f;
 	[Property, Group( "Tuning" )] public float SurvivalTickInterval { get; set; } = 5f;
-	[Property, Group( "Tuning" )] public float ComboMultiplierScale { get; set; } = 50f;
+	// ComboSystem.Value is now a hit-connect streak count (typically 0-30ish), not the old 0-150
+	// combo meter - this scale was retuned to match (streak of 20 -> +2.0x instead of needing 100).
+	[Property, Group( "Tuning" )] public float ComboMultiplierScale { get; set; } = 10f;
 
 	public long Score { get; private set; }
 	public int FinishersUsed { get; private set; }

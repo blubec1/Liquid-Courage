@@ -93,6 +93,7 @@ public class HordeSpawner : Component
 		var enemy = go.AddComponent<T>();
 		enemy.BodyRenderer = renderer;
 		enemy.AnimHelper = animHelper;
+		enemy.ApplyTimeScaling( GameManager.Instance?.SurvivalTime ?? 0f );
 		enemy.ApplyVisual();
 	}
 

@@ -24,6 +24,9 @@ public class PlayerStats : Component
 		if ( GameManager.Instance is not null && GameManager.Instance.State != RunState.Playing )
 			return;
 
+		// The drunker you are, the less you feel it - part of the "powerful but reckless" trade-off.
+		amount *= DrunkennessSystem.Local?.DamageTakenMultiplier ?? 1f;
+
 		CurrentHP = System.Math.Max( 0, CurrentHP - amount );
 		ComboSystem.Local?.OnPlayerDamaged();
 		GameEvents.RaiseShakeRequested( 3f + amount * 0.15f, 0.12f );

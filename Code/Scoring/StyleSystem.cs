@@ -12,7 +12,8 @@ public class StyleSystem : Component
 {
 	public static StyleSystem Local { get; private set; }
 
-	[Property, Group( "Tuning" )] public float ComboMaintainFloor { get; set; } = 40f;
+	// Retuned for ComboSystem's new hit-streak scale (was 40, back when Value was a 0-150 meter).
+	[Property, Group( "Tuning" )] public float ComboMaintainFloor { get; set; } = 5f;
 	[Property, Group( "Tuning" )] public float ComboMaintainBonus { get; set; } = 0.2f;
 	[Property, Group( "Tuning" )] public float VarietyBonusPerStreak { get; set; } = 0.06f;
 	[Property, Group( "Tuning" )] public float MaxVarietyBonus { get; set; } = 0.3f;

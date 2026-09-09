@@ -38,37 +38,26 @@ public class PlayerCombat : Component
 
 	protected override void OnUpdate()
 	{
-		var punch = Input.Pressed( "Punch" );
-		var kick = Input.Pressed( "Kick" );
-		var heavy = Input.Pressed( "Heavy" );
-
-		// TEMPORARY DIAGNOSTIC - remove once attacks are confirmed working. This logs every time
-		// a raw input action fires, *before* any of our own gating - if this never prints when you
-		// click, the problem is upstream of our code entirely (input focus/capture, binding, etc).
-		// If it DOES print but nothing happens in-game, the printed state tells us which guard is
-		// eating the attack.
-		if ( punch || kick || heavy )
-		{
-			Log.Info( $"[PlayerCombat] input fired - Punch={punch} Kick={kick} Heavy={heavy} " +
-				$"| IsReady={IsReady} IsDead={PlayerStats.Local?.IsDead} " +
-				$"State={GameManager.Instance?.State} HasLocal={PlayerCombat.Local == this}" );
-		}
-
 		if ( PlayerStats.Local?.IsDead == true )
 			return;
 
 		if ( GameManager.Instance is not null && GameManager.Instance.State != RunState.Playing )
 			return;
 
+		// Player is mid-"chug" - see DrinkMeter. Input is paused for the same beat every enemy freezes.
+		if ( DrinkMeter.Local?.IsDrinking == true )
+			return;
+
 		if ( !IsReady )
 			return;
 
-		if ( punch )
+		// LMB = light attack, RMB = heavy attack, E = leg sweep (90 degree arc kick).
+		if ( Input.Pressed( "Punch" ) )
 			TryAttack( AttackId.Punch );
-		else if ( kick )
-			TryAttack( AttackId.Kick );
-		else if ( heavy )
+		else if ( Input.Pressed( "Heavy" ) )
 			TryAttack( AttackId.Heavy );
+		else if ( Input.Pressed( "Kick" ) )
+			TryAttack( AttackId.Kick );
 	}
 
 	void TryAttack( AttackId id )
@@ -90,10 +79,10 @@ public class PlayerCombat : Component
 			return;
 		}
 
-		PerformBasicAttack( def, wasVaried );
+		PerformBasicAttack( def );
 	}
 
-	void PerformBasicAttack( AttackDefinition def, bool wasVaried )
+	void PerformBasicAttack( AttackDefinition def )
 	{
 		var origin = WorldPosition;
 		var facing = WorldRotation.Forward;
@@ -113,15 +102,10 @@ public class PlayerCombat : Component
 		HitFeedback.PlayAttackImpact( def.ImpactStrength, hits.Count );
 		PlayerAnimationDriver.Local?.PlayAttackSwing( def );
 
-		var varietyMult = wasVaried ? 1f : 0.45f;
-		var connectMult = hits.Count > 0 ? 1f : 0.6f;
-		var comboAdd = def.ComboValue * varietyMult * connectMult;
-		ComboSystem.Local?.AddCombo( comboAdd );
-
-		// TEMPORARY DIAGNOSTIC - see note in OnUpdate. If "input fired" logs but this line never
-		// does, something between the two threw - check the console for a red exception line.
-		Log.Info( $"[PlayerCombat] {def.Name} completed - hits={hits.Count} comboAdd={comboAdd:0.0} " +
-			$"comboNow={ComboSystem.Local?.Value:0.0} hasComboSystem={ComboSystem.Local is not null}" );
+		// Combo now lives or dies purely on whether you're actually connecting - a whiff never
+		// extends it, no matter how varied your attacks are (see ComboSystem).
+		if ( hits.Count > 0 )
+			ComboSystem.Local?.RegisterHit( hits.Count );
 	}
 
 	void PerformFinisher( FinisherDefinition finisher )
@@ -144,7 +128,9 @@ public class PlayerCombat : Component
 		HitFeedback.PlayFinisherImpact( finisher.ImpactStrength, hits.Count );
 		PlayerAnimationDriver.Local?.PlayFinisher( finisher );
 
-		ComboSystem.Local?.AddCombo( 25f );
+		if ( hits.Count > 0 )
+			ComboSystem.Local?.RegisterHit( hits.Count );
+
 		GameEvents.RaiseFinisherExecuted( finisher, hits.Count );
 	}
 }

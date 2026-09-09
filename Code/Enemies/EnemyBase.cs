@@ -22,6 +22,9 @@ public abstract class EnemyBase : Component
 	[Property, Group( "Stats" )] public bool IsSoberingEnemy { get; set; } = false;
 	[Property, Group( "Stats" )] public float SoberingAmount { get; set; } = 18f;
 
+	[Property, Group( "Time Scaling" )] public float HpRampPerSecond { get; set; } = 0.006f;
+	[Property, Group( "Time Scaling" )] public float DamageRampPerSecond { get; set; } = 0.004f;
+
 	[Property] public Sandbox.Citizen.CitizenAnimationHelper AnimHelper { get; set; }
 	[Property] public SkinnedModelRenderer BodyRenderer { get; set; }
 
@@ -43,6 +46,26 @@ public abstract class EnemyBase : Component
 
 	/// <summary>Called by the spawner once BodyRenderer is assigned, so archetypes can tint/scale themselves.</summary>
 	public virtual void ApplyVisual() { }
+
+	/// <summary>
+	/// Called by HordeSpawner right after spawn with the current run's survival time, so the
+	/// horde keeps getting tougher the longer a run goes - independent of the spawn-rate/archetype
+	/// ramp HordeSpawner already does. Purely multiplicative on top of the archetype's own stats.
+	/// </summary>
+	public void ApplyTimeScaling( float survivalTime )
+	{
+		var t = System.MathF.Max( 0f, survivalTime );
+		MaxHP *= 1f + t * HpRampPerSecond;
+		Damage *= 1f + t * DamageRampPerSecond;
+		CurrentHP = MaxHP;
+	}
+
+	/// <summary>Freezes this enemy in place for the given duration - reuses the same field the hit-stagger
+	/// system already uses. Used by DrinkMeter so the whole crowd visibly pauses during a drink.</summary>
+	public void SetFreeze( float duration )
+	{
+		FreezeUntil = System.MathF.Max( FreezeUntil, Time.Now + duration );
+	}
 
 	protected override void OnAwake()
 	{

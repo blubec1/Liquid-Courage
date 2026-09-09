@@ -13,6 +13,9 @@ public class PlayerFacing : Component
 
 	protected override void OnUpdate()
 	{
+		if ( DrinkMeter.Local?.IsDrinking == true )
+			return;
+
 		var camera = IsoCameraRig.Instance?.Camera;
 		if ( camera is null )
 			return;
@@ -40,6 +43,13 @@ public class PlayerFacing : Component
 
 		var targetYaw = System.MathF.Atan2( FacingDirection.y, FacingDirection.x ) * (180f / System.MathF.PI);
 		var targetRotation = Rotation.FromYaw( targetYaw );
-		WorldRotation = Rotation.Slerp( WorldRotation, targetRotation, System.Math.Clamp( Time.Delta * TurnSpeed, 0f, 1f ) );
+
+		// Aiming gets slightly heavier/laggier as drunkenness climbs - the tension against the
+		// power scaling (more damage, less damage taken) is the whole "drunk but powerful" hook.
+		var drunk = DrunkennessSystem.Local;
+		var drunkT = drunk is not null ? System.Math.Clamp( drunk.Value / drunk.MaxValue, 0f, 1f ) : 0f;
+		var effectiveTurnSpeed = TurnSpeed * (1f - drunkT * 0.35f);
+
+		WorldRotation = Rotation.Slerp( WorldRotation, targetRotation, System.Math.Clamp( Time.Delta * effectiveTurnSpeed, 0f, 1f ) );
 	}
 }

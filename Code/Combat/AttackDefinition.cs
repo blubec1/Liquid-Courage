@@ -33,9 +33,6 @@ public class AttackDefinition
 	/// <summary>Total width of the hit arc in degrees, centered on the player's facing direction.</summary>
 	public float ArcDegrees;
 
-	/// <summary>How much this attack adds to the combo meter at full variety (see ComboSystem for the variety scaling).</summary>
-	public float ComboValue;
-
 	/// <summary>How strong the impact feedback is (0-1). Drives freeze-frame length, screenshake and enemy knockback scaling.</summary>
 	public float ImpactStrength;
 
@@ -70,7 +67,6 @@ public static class AttackLibrary
 			Recovery = 0.12f,
 			Range = 65,
 			ArcDegrees = 100,
-			ComboValue = 6,
 			ImpactStrength = 0.25f,
 			Knockback = 90,
 			StaggerTime = 0.18f,
@@ -84,7 +80,6 @@ public static class AttackLibrary
 			Recovery = 0.18f,
 			Range = 80,
 			ArcDegrees = 90,
-			ComboValue = 9,
 			ImpactStrength = 0.5f,
 			Knockback = 220,
 			StaggerTime = 0.32f,
@@ -98,7 +93,6 @@ public static class AttackLibrary
 			Recovery = 0.35f,
 			Range = 95,
 			ArcDegrees = 80,
-			ComboValue = 13,
 			ImpactStrength = 1f,
 			Knockback = 380,
 			StaggerTime = 0.55f,

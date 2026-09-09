@@ -7,35 +7,44 @@
 <root>
 	<div class="hud-root">
 
-		<div class="vignette" style="opacity:@(VignetteOpacity);"></div>
+		<div class="vignette" style="opacity:@(VignetteOpacity); background:radial-gradient(ellipse at center, transparent 50%, @(VignetteColor) 145%); transform:rotate(@(SwayAngle)deg) translateX(@(SwayOffsetX)px) scale(1.05);"></div>
+
+		<div class="blackout @(ShowBlackout ? "visible" : "")" style="opacity:@(BlackoutFraction); background:radial-gradient(ellipse at center, transparent @(38f - BlackoutFraction * 24f)%, black 96%);"></div>
 
 		<div class="top-left">
 			<div class="bar-label">HP</div>
 			<div class="hp-bar-bg">
-				<div class="hp-bar-fill" style="width:@(HpFraction * 100)%;"></div>
+				<div class="hp-bar-fill" style="width:@((HpFraction * 100).ToString( "0.##" ))%;"></div>
 			</div>
 			<div class="hp-text">@HpText</div>
 
-			<div class="bar-label combo-label">COMBO</div>
-			<div class="combo-bar-bg">
-				<div class="combo-bar-fill" style="width:@(ComboFraction * 100)%;"></div>
+			<div class="bar-label drink-label">NEXT DRINK</div>
+			<div class="drink-bar-bg">
+				<div class="drink-bar-fill" style="width:@((DrinkFraction * 100).ToString( "0.##" ))%;"></div>
 			</div>
-			<div class="combo-text">@ComboText</div>
 		</div>
 
 		<div class="top-right">
 			<div class="score-text">@ScoreText</div>
 			<div class="multiplier-text">@MultiplierText MULT</div>
+			<div class="combo-mini-bar-bg @(ComboFlash ? "pop" : "")">
+				<div class="combo-mini-bar-fill" style="width:@((ComboGraceFraction * 100).ToString( "0.##" ))%; background-color:@(ComboColor);"></div>
+			</div>
 		</div>
+
+		<div class="timer-text">@TimerText</div>
 
 		<div class="last-call-banner @(IsLastCall ? "visible" : "")">LAST CALL</div>
 
 		<div class="milestone-toast @(HasToast ? "visible" : "")">@ToastText</div>
 
-		<div class="crosshair-wrap" style="left:@(CrosshairXFraction * 100)%; top:@(CrosshairYFraction * 100)%;">
+		<div class="drink-flash @(HasDrinkFlash ? "visible" : "")"></div>
+		<div class="drink-toast @(HasDrinkToast ? "visible" : "")">@DrinkToastText</div>
+
+		<div class="crosshair-wrap" style="left:@((CrosshairXFraction * 100).ToString( "0.##" ))%; top:@((CrosshairYFraction * 100).ToString( "0.##" ))%;">
 			<div class="crosshair-dot"></div>
 			<div class="cooldown-bar-bg">
-				<div class="cooldown-bar-fill" style="width:@(CooldownFraction * 100)%;"></div>
+				<div class="cooldown-bar-fill" style="width:@((CooldownFraction * 100).ToString( "0.##" ))%;"></div>
 			</div>
 		</div>
 
@@ -71,14 +80,98 @@
 		}
 	}
 
-	public float ComboFraction => System.Math.Clamp( (ComboSystem.Local?.Value ?? 0f) / 150f, 0f, 1f );
-	public string ComboText => $"{(ComboSystem.Local?.Value ?? 0f):0}";
+	// --- Combo (hit-connect streak) ---
+	public int ComboStreak => ComboSystem.Local?.HitStreak ?? 0;
+	public float ComboGraceFraction => ComboSystem.Local?.GraceFraction01 ?? 0f;
 
+	public string ComboColor
+	{
+		get
+		{
+			var s = ComboStreak;
+			if ( s >= 15 ) return "#ff3b3b";
+			if ( s >= 10 ) return "#ff8a3b";
+			if ( s >= 5 ) return "#ffd257";
+			return "#9fe870";
+		}
+	}
+
+	float _lastComboFlashEnd = -999f;
+	public bool ComboFlash => Time.Now < _lastComboFlashEnd;
+
+	void OnComboHit( int newStreak )
+	{
+		_lastComboFlashEnd = Time.Now + 0.18f;
+	}
+
+	// --- Drink meter ---
+	public float DrinkFraction => DrinkMeter.Local?.Fraction01 ?? 0f;
+
+	// --- Score ---
 	public string ScoreText => $"SCORE  {(ScoreSystem.Local?.Score ?? 0):N0}";
 	public string MultiplierText => $"x{(ScoreSystem.Local?.Multiplier ?? 1f):0.00}";
 
-	public bool IsLastCall => DrunkennessSystem.Local?.IsLastCall ?? false;
+	// --- Timer ---
+	public string TimerText
+	{
+		get
+		{
+			var s = GameManager.Instance?.SurvivalTime ?? 0f;
+			var m = (int)(s / 60);
+			var sec = (int)(s % 60);
+			return $"{m:00}:{sec:00}";
+		}
+	}
 
+	// --- Drunkenness VFX (deliberately no numeric bar - see DrunkennessSystem) ---
+	public bool IsLastCall => DrunkennessSystem.Local?.IsLastCall ?? false;
+	public float BlackoutFraction => DrunkennessSystem.Local?.BlackoutFraction01 ?? 0f;
+	public bool ShowBlackout => BlackoutFraction > 0f;
+
+	float DrunkFraction01
+	{
+		get
+		{
+			var d = DrunkennessSystem.Local;
+			return d is null ? 0f : System.Math.Clamp( d.Value / d.MaxValue, 0f, 1f );
+		}
+	}
+
+	public float VignetteOpacity => System.Math.Clamp( (DrunkFraction01 - 0.2f) / 0.8f, 0f, 1f ) * 0.55f;
+
+	public string VignetteColor
+	{
+		get
+		{
+			var f = DrunkFraction01;
+			var r = (int)(90 + 130 * f);
+			var g = (int)(12 * (1f - f));
+			var b = (int)(14 + 46 * f);
+			return $"rgba({r},{g},{b},1)";
+		}
+	}
+
+	// Subtle full-screen sway once drunkenness is meaningfully high - the "swimmy vision" cue.
+	public float SwayAngle => System.MathF.Sin( Time.Now * 0.8f ) * DrunkFraction01 * 2.2f;
+	public float SwayOffsetX => System.MathF.Sin( Time.Now * 0.5f ) * DrunkFraction01 * 5f;
+
+	// --- Drink event flourish ---
+	string _drinkToastText = "";
+	float _drinkToastEnd = -999f;
+	float _drinkFlashEnd = -999f;
+
+	public bool HasDrinkToast => Time.Now < _drinkToastEnd;
+	public bool HasDrinkFlash => Time.Now < _drinkFlashEnd;
+	public string DrinkToastText => _drinkToastText;
+
+	void OnDrinkTriggered( int glassNumber )
+	{
+		_drinkToastText = $"CHEERS! - GLASS #{glassNumber}";
+		_drinkToastEnd = Time.Now + 2.2f;
+		_drinkFlashEnd = Time.Now + 0.35f;
+	}
+
+	// --- Cooldown / crosshair ---
 	public float CooldownFraction => PlayerCombat.Local?.CooldownFraction01 ?? 1f;
 
 	// The HUD's ScreenPanel auto-scales its own coordinate space to a fixed virtual height, so
@@ -89,38 +182,12 @@
 	public float CrosshairXFraction => Screen.Width > 0 ? Mouse.Position.x / Screen.Width : 0.5f;
 	public float CrosshairYFraction => Screen.Height > 0 ? Mouse.Position.y / Screen.Height : 0.5f;
 
-	public float VignetteOpacity
-	{
-		get
-		{
-			var d = DrunkennessSystem.Local;
-			if ( d is null ) return 0f;
-
-			var t = System.Math.Clamp( d.Value / 100f, 0f, 1f );
-			var opacity = System.Math.Clamp( (t - 0.35f) / 0.65f, 0f, 1f ) * 0.55f;
-
-			if ( d.IsLastCall )
-				opacity += 0.15f * (System.MathF.Sin( Time.Now * 6f ) * 0.5f + 0.5f);
-
-			return System.Math.Clamp( opacity, 0f, 0.8f );
-		}
-	}
-
+	// --- Milestone toasts ---
 	string _toastText = "";
 	float _toastEndTime = -999f;
 
 	public bool HasToast => Time.Now < _toastEndTime;
 	public string ToastText => _toastText;
-
-	protected override void OnStart()
-	{
-		GameEvents.Milestone += OnMilestone;
-	}
-
-	protected override void OnDestroy()
-	{
-		GameEvents.Milestone -= OnMilestone;
-	}
 
 	void OnMilestone( string text )
 	{
@@ -128,25 +195,48 @@
 		_toastEndTime = Time.Now + 3.5f;
 	}
 
+	protected override void OnStart()
+	{
+		GameEvents.Milestone += OnMilestone;
+		GameEvents.DrinkTriggered += OnDrinkTriggered;
+		GameEvents.ComboHit += OnComboHit;
+	}
+
+	protected override void OnDestroy()
+	{
+		GameEvents.Milestone -= OnMilestone;
+		GameEvents.DrinkTriggered -= OnDrinkTriggered;
+		GameEvents.ComboHit -= OnComboHit;
+	}
+
 	// s&box Razor panels only rebuild when this hash changes - without it the HUD renders once
-	// and then never updates, no matter how much the underlying data changes.
+	// and then never updates, no matter how much the underlying data changes. The coarse time
+	// bucket in h2 is what keeps the sway/timer/vignette animating smoothly frame to frame.
 	protected override int BuildHash()
 	{
-		var h1 = System.HashCode.Combine(
+		// HashCode.Combine only has overloads for up to 8 arguments, so this is split into two
+		// nested groups rather than one call with 9.
+		var h1a = System.HashCode.Combine(
 			PlayerStats.Local?.CurrentHP,
 			PlayerStats.Local?.MaxHP,
-			ComboSystem.Local?.Value,
+			ComboStreak,
+			System.MathF.Round( ComboGraceFraction, 2 ),
+			ComboFlash,
 			ScoreSystem.Local?.Score,
 			ScoreSystem.Local?.Multiplier,
-			DrunkennessSystem.Local?.IsLastCall,
-			PlayerCombat.Local?.CooldownFraction01,
-			_toastText );
+			System.MathF.Round( DrinkFraction, 2 ) );
+
+		var h1 = System.HashCode.Combine( h1a, _toastText );
 
 		var h2 = System.HashCode.Combine(
 			HasToast,
+			HasDrinkToast,
+			HasDrinkFlash,
+			_drinkToastText,
 			CrosshairXFraction,
 			CrosshairYFraction,
-			VignetteOpacity );
+			(int)(Time.Now * 12),
+			PlayerCombat.Local?.CooldownFraction01 );
 
 		return System.HashCode.Combine( h1, h2 );
 	}
@@ -165,7 +255,14 @@
 		position: absolute;
 		width: 100%;
 		height: 100%;
-		background: radial-gradient( ellipse at center, transparent 55%, rgba(140,10,10,1) 140% );
+		transition: opacity 0.3s ease;
+	}
+
+	.blackout {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		transition: opacity 0.5s ease;
 	}
 
 	.top-left {
@@ -185,11 +282,12 @@
 		text-shadow: 0 2px 4px black;
 	}
 
-	.combo-label {
+	.drink-label {
 		margin-top: 14px;
+		color: #ffd257;
 	}
 
-	.hp-bar-bg, .combo-bar-bg {
+	.hp-bar-bg, .drink-bar-bg {
 		width: 100%;
 		height: 22px;
 		background-color: rgba(0,0,0,0.55);
@@ -205,13 +303,13 @@
 		transition: width 0.15s ease-out;
 	}
 
-	.combo-bar-fill {
+	.drink-bar-fill {
 		height: 100%;
-		background-color: #f2b30f;
-		transition: width 0.1s ease-out;
+		background-color: #e8a33d;
+		transition: width 0.2s ease-out;
 	}
 
-	.hp-text, .combo-text {
+	.hp-text {
 		color: white;
 		font-size: 13px;
 		margin-top: 2px;
@@ -240,6 +338,38 @@
 		font-size: 18px;
 		font-weight: 700;
 		text-shadow: 0 2px 4px black;
+	}
+
+	.combo-mini-bar-bg {
+		width: 130px;
+		height: 7px;
+		background-color: rgba(0,0,0,0.5);
+		border: 1px solid rgba(255,255,255,0.2);
+		border-radius: 3px;
+		overflow: hidden;
+		margin-top: 8px;
+		transition: transform 0.15s ease-out;
+	}
+
+	.combo-mini-bar-bg.pop {
+		transform: scaleY(1.9);
+	}
+
+	.combo-mini-bar-fill {
+		height: 100%;
+		transition: width 0.1s linear, background-color 0.2s ease;
+	}
+
+	.timer-text {
+		position: absolute;
+		top: 28px;
+		left: 50%;
+		transform: translateX(-50%);
+		color: white;
+		font-size: 22px;
+		font-weight: 800;
+		letter-spacing: 1px;
+		text-shadow: 0 2px 6px black;
 	}
 
 	.last-call-banner {
@@ -275,6 +405,39 @@
 
 	.milestone-toast.visible {
 		opacity: 1;
+	}
+
+	.drink-flash {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		background-color: white;
+		opacity: 0;
+		transition: opacity 0.35s ease-out;
+	}
+
+	.drink-flash.visible {
+		opacity: 0.35;
+		transition: opacity 0.05s ease-in;
+	}
+
+	.drink-toast {
+		position: absolute;
+		top: 190px;
+		left: 50%;
+		transform: translateX(-50%) scale(0.85);
+		color: #ffd257;
+		font-size: 26px;
+		font-weight: 900;
+		letter-spacing: 3px;
+		text-shadow: 0 2px 10px black;
+		opacity: 0;
+		transition: opacity 0.3s ease, transform 0.3s ease;
+	}
+
+	.drink-toast.visible {
+		opacity: 1;
+		transform: translateX(-50%) scale(1);
 	}
 
 	.crosshair-wrap {

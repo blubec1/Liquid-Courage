@@ -36,6 +36,13 @@ public class PlayerMovement : Component
 			return;
 		}
 
+		if ( DrinkMeter.Local?.IsDrinking == true )
+		{
+			// Mid-"chug" - let momentum bleed off rather than snapping to a stop, it reads softer.
+			ApplyVelocity( Vector3.Zero );
+			return;
+		}
+
 		var forward = (Input.Down( "Forward" ) ? 1f : 0f) - (Input.Down( "Backward" ) ? 1f : 0f);
 		var side = (Input.Down( "Right" ) ? 1f : 0f) - (Input.Down( "Left" ) ? 1f : 0f);
 
@@ -43,6 +50,19 @@ public class PlayerMovement : Component
 		var camRight = IsoCameraRig.Instance?.FlatRight ?? Vector3.Right;
 
 		var wishDir = camForward * forward + camRight * side;
+
+		// Drunk stumble: the drunker you are, the more your intended direction wobbles - sells
+		// "powerful but hard to control" without ever fully taking control away from the player.
+		var drunk = DrunkennessSystem.Local;
+		var drunkT = drunk is not null ? System.Math.Clamp( drunk.Value / drunk.MaxValue, 0f, 1f ) : 0f;
+		if ( drunkT > 0f && wishDir.Length > 0.01f )
+		{
+			var wobbleRad = System.MathF.Sin( Time.Now * 3.3f ) * drunkT * (18f * System.MathF.PI / 180f);
+			var cos = System.MathF.Cos( wobbleRad );
+			var sin = System.MathF.Sin( wobbleRad );
+			wishDir = new Vector3( wishDir.x * cos - wishDir.y * sin, wishDir.x * sin + wishDir.y * cos, 0 );
+		}
+
 		var wishLen = wishDir.Length;
 		if ( wishLen > 1f )
 			wishDir /= wishLen;

@@ -3,25 +3,30 @@ using System;
 namespace DrunkenBarFight;
 
 /// <summary>
-/// Owns the combo meter. It doesn't know anything about attacks or variety scaling - callers
-/// (PlayerCombat) decide how much a given hit is worth and call AddCombo with the final number.
-/// This system just builds, decays and fires threshold events as the meter climbs.
+/// The combo is now purely a "keep hitting enemies" streak - it has nothing to do with attack
+/// variety anymore. Every attack that actually connects extends the streak by however many
+/// enemies it hit; the streak breaks if the player goes GraceTime seconds without landing a hit.
+/// The HUD's combo bar shows that grace window draining, not the streak count itself - its whole
+/// job is to make "the combo is about to die" visible and pressuring.
 /// </summary>
 public class ComboSystem : Component
 {
 	public static ComboSystem Local { get; private set; }
 
-	[Property, Group( "Tuning" )] public float ThresholdStep { get; set; } = 20f;
-	[Property, Group( "Tuning" )] public float DecayPerSecond { get; set; } = 5f;
-	[Property, Group( "Tuning" )] public float IdleDrainMultiplier { get; set; } = 4.5f;
-	[Property, Group( "Tuning" )] public float IdleGraceTime { get; set; } = 1.3f;
-	[Property, Group( "Tuning" )] public float DamageLossFraction { get; set; } = 0.5f;
+	[Property, Group( "Tuning" )] public float GraceTime { get; set; } = 2.2f;
+	[Property, Group( "Tuning" )] public float DamagedGracePenaltyFraction { get; set; } = 0.5f;
 
-	public float Value { get; private set; }
-	public float HighestValue { get; private set; }
+	public int HitStreak { get; private set; }
+	public int HighestStreak { get; private set; }
 
-	float _lastAttackTime = -999f;
-	int _thresholdIndexThisStreak;
+	/// <summary>Kept as float for compatibility with ScoreSystem/StyleSystem/RunStats, which just want a number.</summary>
+	public float Value => HitStreak;
+	public float HighestValue => HighestStreak;
+
+	float _graceRemaining;
+
+	/// <summary>1 = just landed a hit, 0 = about to break. Drives the HUD's combo bar.</summary>
+	public float GraceFraction01 => GraceTime > 0f ? Math.Clamp( _graceRemaining / GraceTime, 0f, 1f ) : 0f;
 
 	protected override void OnAwake()
 	{
@@ -33,50 +38,41 @@ public class ComboSystem : Component
 		if ( GameManager.Instance is not null && GameManager.Instance.State != RunState.Playing )
 			return;
 
-		var idle = (Time.Now - _lastAttackTime) > IdleGraceTime;
-		var rate = DecayPerSecond * (idle ? IdleDrainMultiplier : 1f);
-		if ( rate > 0 && Value > 0 )
-		{
-			Value = MathF.Max( 0, Value - rate * Time.Delta );
-			if ( Value <= 0.01f )
-				_thresholdIndexThisStreak = 0;
-		}
-	}
-
-	/// <summary>Add (already variety-scaled) combo value from a successful hit.</summary>
-	public void AddCombo( float amount )
-	{
-		if ( amount <= 0 )
+		if ( HitStreak <= 0 )
 			return;
 
-		Value += amount;
-		HighestValue = MathF.Max( HighestValue, Value );
-		_lastAttackTime = Time.Now;
-
-		CheckThresholds();
+		_graceRemaining -= Time.Delta;
+		if ( _graceRemaining <= 0f )
+		{
+			_graceRemaining = 0f;
+			HitStreak = 0;
+			GameEvents.RaiseComboBroken();
+		}
 	}
 
-	/// <summary>Called by PlayerStats whenever the player takes damage - combo takes a hit too.</summary>
+	/// <summary>Call this whenever a player attack actually connects with at least one enemy - never on a whiff.</summary>
+	public void RegisterHit( int enemiesHitThisSwing )
+	{
+		if ( enemiesHitThisSwing <= 0 )
+			return;
+
+		HitStreak += enemiesHitThisSwing;
+		HighestStreak = Math.Max( HighestStreak, HitStreak );
+		_graceRemaining = GraceTime;
+
+		GameEvents.RaiseComboHit( HitStreak );
+	}
+
+	/// <summary>Called by PlayerStats when the player takes damage - eats into the grace window instead of instantly halving the streak.</summary>
 	public void OnPlayerDamaged()
 	{
-		Value *= (1f - DamageLossFraction);
-	}
-
-	void CheckThresholds()
-	{
-		var targetIndex = (int)MathF.Floor( Value / ThresholdStep );
-		while ( _thresholdIndexThisStreak < targetIndex )
-		{
-			_thresholdIndexThisStreak++;
-			GameEvents.RaiseComboThreshold( _thresholdIndexThisStreak );
-		}
+		_graceRemaining = Math.Max( 0f, _graceRemaining - GraceTime * DamagedGracePenaltyFraction );
 	}
 
 	public void ResetRun()
 	{
-		Value = 0;
-		HighestValue = 0;
-		_thresholdIndexThisStreak = 0;
-		_lastAttackTime = -999f;
+		HitStreak = 0;
+		HighestStreak = 0;
+		_graceRemaining = 0f;
 	}
 }

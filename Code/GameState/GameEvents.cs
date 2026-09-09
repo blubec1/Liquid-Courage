@@ -9,9 +9,17 @@ namespace DrunkenBarFight;
 /// </summary>
 public static class GameEvents
 {
-	/// <summary>Fired every time the combo meter crosses a new threshold going upward. Arg = threshold index (0-based).</summary>
-	public static event Action<int> ComboThresholdReached;
-	public static void RaiseComboThreshold( int index ) => ComboThresholdReached?.Invoke( index );
+	/// <summary>Fired every time a landed hit extends the combo streak. Arg = the new streak count.</summary>
+	public static event Action<int> ComboHit;
+	public static void RaiseComboHit( int newStreak ) => ComboHit?.Invoke( newStreak );
+
+	/// <summary>Fired when the combo streak breaks (no hit landed within the grace window).</summary>
+	public static event Action ComboBroken;
+	public static void RaiseComboBroken() => ComboBroken?.Invoke();
+
+	/// <summary>Fired when the drink meter fills and the player drinks a glass. Arg = glass number this run.</summary>
+	public static event Action<int> DrinkTriggered;
+	public static void RaiseDrinkTriggered( int glassNumber ) => DrinkTriggered?.Invoke( glassNumber );
 
 	/// <summary>Fired when drunkenness enters the dangerous "Last Call" band.</summary>
 	public static event Action LastCallEntered;
