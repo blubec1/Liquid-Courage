@@ -56,11 +56,12 @@ public class AttackDefinition
 
 public static class AttackLibrary
 {
-	public static readonly IReadOnlyDictionary<AttackId, AttackDefinition> All = new Dictionary<AttackId, AttackDefinition>
+	public static readonly Dictionary<AttackId, AttackDefinition> All = new Dictionary<AttackId, AttackDefinition>
 	{
 		[AttackId.Punch] = new()
 		{
 			Id = AttackId.Punch,
+			Animation = "Punching_1",
 			Name = "Punch",
 			Damage = 7,
 			Cooldown = 0.26f,
@@ -74,6 +75,8 @@ public static class AttackLibrary
 		[AttackId.Kick] = new()
 		{
 			Id = AttackId.Kick,
+			Animation = "Roundhouse_Kick_2",
+			AnimationDuration = 0.8f,
 			Name = "Kick",
 			Damage = 13,
 			Cooldown = 0.44f,
@@ -87,6 +90,8 @@ public static class AttackLibrary
 		[AttackId.Heavy] = new()
 		{
 			Id = AttackId.Heavy,
+			Animation = "Hook_Punch_2",
+			AnimationDuration = 0.6f,
 			Name = "Heavy",
 			Damage = 28,
 			Cooldown = 0.9f,
