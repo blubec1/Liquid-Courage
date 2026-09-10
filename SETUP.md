@@ -68,41 +68,62 @@ test - it's simple, fast, and easy to tune, but it means attacks ignore line-of-
 directly behind a wall from you but within range/arc would still get hit). Given the arena is one
 compact open room, that shouldn't come up in practice.
 
-## Adding real attack animations (Mixamo)
+## Real attack animations - now wired up with bone-level blending
 
-Mixamo animations use a different skeleton than Citizen, so they need retargeting before they'll
-play on the player/enemies. Two steps:
+The retargeted Mixamo clips from your `Liquid-Courage` animation project are now wired into
+combat, using the bone-override blending approach from that project's `PLAN_AnimationBlending.md`
+(which hadn't actually been implemented yet there either - it was still on the naive
+full-body-swap approach - so this is the first real implementation of that plan).
 
-1. **Get the clip onto the Citizen skeleton.** Export the FBX from Mixamo, then bring it into
-   s&box. The stock editor's Model Importer can do this, or the community "s&box Model Importer"
-   tool (sboxcool.com) auto-detects Mixamo rigs and maps them onto Citizen if the built-in
-   workflow gives you trouble. Either way, you end up with a sequence name on a Citizen-compatible
-   model/animation asset - that name is what the code below needs.
+**`Code/Combat/AttackDefinition.cs`** now sets real clip names: `Punch` -> `"Punching_1"`, `Kick`
+-> `"Roundhouse_Kick_2"` (0.8s), `Heavy` -> `"Hook_Punch_2"` (0.6s) - matching exactly what's
+wired in `Liquid-Courage`.
 
-2. **Wire the clip name into the attack.** Open `Code/Combat/AttackDefinition.cs` (or
-   `FinisherDefinition.cs`) and set the `Animation` field on the relevant entry in `AttackLibrary`/
-   `FinisherLibrary`, e.g. `Animation = "punch_01"`. Leave `AnimationDuration` at 0 to let it use
-   the existing timing (based on `Recovery`/`StaggerTime`), or set it explicitly once you know the
-   clip's real length.
+**`Code/Player/PlayerAnimationDriver.cs`** was rewritten around the blend plan: the main animgraph
+never gets disabled for attacks anymore, so legs/hips keep walking normally through a punch or
+kick. Instead, a hidden second `SceneModel` (parked at `(0,0,-10000)`, never rendered) scrubs the
+attack clip in isolation, and every frame the driver blends that sampled pose onto just the
+upper-body bones (`spine_0` up through the hands) on the real player model - fading in over
+`BlendInDuration` (0.08s), holding, fading out over `BlendOutDuration` (0.12s), then calling
+`ClearPhysicsBones()` to hand full control back to the animgraph. Both durations are `[Property]`
+tunables on the component. The drink "chug" animation still uses the old simple full-body swap,
+since movement is already paused for its whole duration - there's no locomotion to protect, so the
+extra complexity isn't needed there.
 
-That's it from a data standpoint - `PlayerAnimationDriver.PlayAttackSwing`/`PlayFinisher` already
-check for `Animation` and try to play it via `TryPlaySequence`, falling back to the procedural
-lunge automatically if `Animation` is empty or if playback fails for any reason.
+Every step is wrapped in try/catch and falls back gracefully: no bones resolve on the model ->
+falls back to the old full-body swap; that fails too, or the clip name doesn't exist -> falls back
+to the original procedural lunge/squash-stretch. A bad clip or an API mismatch on your engine
+version can't break combat, but please tell me exactly what you see when you test it (blends
+cleanly? legs stutter? upper body doesn't move at all? pops at the end?) so I can retune the blend
+timings or fix whatever doesn't match what your version of s&box actually does.
 
-**Important caveat:** playing a one-shot sequence on top of the Citizen anim graph from code is a
-known rough edge in s&box - there wasn't a simple first-class "just play this clip" API at the
-time this was written, so `TryPlaySequence` uses the current community workaround (toggling
-`SceneModel.UseAnimGraph` off and setting `CurrentSequence.Name` directly, then reverting after
-the attack's duration). This is wrapped in a try/catch and silently falls back to the procedural
-version if it doesn't work, so a bad clip name or an API mismatch won't break combat - but expect
-to iterate on this once you're testing against real clips, and tell me what actually happens
-(does it play but not blend back into locomotion cleanly? not play at all? wrong clip?) so I can
-adjust `TryPlaySequence`/`DriveSequenceRevert` in `PlayerAnimationDriver.cs` to match what your
-version of the engine actually does.
+**One manual step needed:** I can't run a shell in this session right now, so I couldn't copy the
+animation asset files myself. Please copy this whole folder:
 
-Enemies (`EnemyBase.cs`) don't have an animation driver yet - only the player does. If you want
+```
+D:\s&box projects\Drunken animatii\Liquid-Courage\Assets\animations
+```
+
+into your main project here, so you end up with:
+
+```
+D:\s&box projects\drunken_bar_fight\Assets\animations\retargeted\player_animations.vmdl
+D:\s&box projects\drunken_bar_fight\Assets\animations\retargeted\*.dmx
+```
+
+(just drag-and-drop the `animations` folder into `Assets\` in Explorer - copying a couple of extra
+unused files in there is harmless). `bar.scene`'s Player -> ModelPivot -> `SkinnedModelRenderer`
+now points its `Model` at `animations/retargeted/player_animations.vmdl` instead of the plain
+`models/citizen/citizen.vmdl` - that custom model is what actually carries the `Punching_1` /
+`Roundhouse_Kick_2` / `Hook_Punch_2` sequences (built on top of the real Citizen model/skeleton, so
+everything else - locomotion, tint, scale - still works identically). You don't need to copy the
+`Libraries/notpointless.chomnr_humanoid_retargeter` folder - that's only the editor-time retargeting
+tool that produced these already-baked animation files; it's not needed at runtime. You'd only want
+it here too if you plan to retarget more clips directly in this project later.
+
+Enemies (`EnemyBase.cs`) still don't have an animation driver - only the player does. If you want
 enemy attacks animated too, that's a small extension of the same pattern (they already have an
-`AnimHelper` reference for locomotion; giving them a `TryPlaySequence`-style hook for their own
+`AnimHelper` reference for locomotion; giving them a same-style bone-blend hook for their own
 `ResolveAttack` would look identical to the player's).
 
 ## Major redesign: controls, combo, and the drinking loop

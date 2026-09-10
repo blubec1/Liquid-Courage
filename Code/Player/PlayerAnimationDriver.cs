@@ -3,17 +3,21 @@ using System.Linq;
 namespace DrunkenBarFight;
 
 /// <summary>
-/// Drives the Citizen locomotion animation graph, and handles attack/finisher "impact" visuals.
+/// Drives the Citizen locomotion animation graph, and handles attack/finisher/drink animations.
 ///
-/// If an AttackDefinition/FinisherDefinition has an Animation name set (a Citizen-compatible
-/// sequence - e.g. a Mixamo clip retargeted onto the Citizen skeleton), we try to play that
-/// sequence directly. If not, we fall back to a purely procedural lunge + squash/stretch on the
-/// model pivot instead.
+/// Attacks use bone-level override blending (see PLAN_AnimationBlending.md): the main animgraph
+/// keeps running the whole time - so legs/hips keep walking normally - while a hidden secondary
+/// SceneModel scrubs the attack clip in isolation, and its pose is blended onto just the
+/// upper-body bones each frame (fade in, hold, fade out). This replaces the older approach of
+/// disabling the whole animgraph to play a clip, which froze the legs solid mid-attack.
 ///
-/// Playing a one-shot sequence on top of the Citizen anim graph is a known rough edge in s&box
-/// (there's no simple first-class "PlayAnimation(name)" call at the time this was written), so
-/// TryPlaySequence is deliberately defensive: if it fails for any reason, we silently fall back
-/// to the procedural version rather than breaking the attack.
+/// The drink "chug" animation doesn't need any of that: movement is paused for its entire
+/// duration (see DrinkMeter/PlayerMovement/PlayerFacing), so there's no locomotion to protect,
+/// and it just does a plain full-body sequence swap the simple way.
+///
+/// Every step here is best-effort and wrapped defensively: if a clip name is wrong, a bone
+/// doesn't resolve, or an API doesn't behave as expected, it falls back all the way to the
+/// original procedural lunge/squash-stretch rather than breaking combat.
 /// </summary>
 public class PlayerAnimationDriver : Component
 {
@@ -24,6 +28,22 @@ public class PlayerAnimationDriver : Component
 
 	[Property, Group( "Tuning" )] public float LungeDistance { get; set; } = 14f;
 	[Property, Group( "Tuning" )] public float SquashAmount { get; set; } = 0.12f;
+
+	[Property, Group( "Attack Blending" )] public float BlendInDuration { get; set; } = 0.08f;
+	[Property, Group( "Attack Blending" )] public float BlendOutDuration { get; set; } = 0.12f;
+
+	// Citizen rig bone names, upper body only ("spine_0" and up) - see PLAN_AnimationBlending.md.
+	// Everything below this (pelvis, legs, feet) is left entirely animgraph-driven, so locomotion
+	// never breaks mid-attack.
+	static readonly string[] UpperBodyBones =
+	{
+		"spine_0", "spine_1", "spine_2", "spine_3",
+		"neck_0", "head",
+		"clavicle_L", "clavicle_R",
+		"arm_upper_L", "arm_upper_R",
+		"arm_lower_L", "arm_lower_R",
+		"hand_L", "hand_R",
+	};
 
 	CharacterController _cc;
 	SkinnedModelRenderer _bodyRenderer;
@@ -38,8 +58,17 @@ public class PlayerAnimationDriver : Component
 	bool _isDrinkingVisual;
 	bool _usingDrinkClipVisual;
 
-	bool _sequenceActive;
-	float _sequenceRevertTime;
+	// --- Attack bone-blend state (see DriveAttackBoneOverrides) ---
+	SceneModel _sampleModel;
+	BoneCollection.Bone[] _overrideBones;
+	bool _attackSequenceActive;
+	float _attackSequenceRevertTime;
+	float _sequenceTime;
+	float _currentBlendWeight;
+
+	// --- Drink full-body sequence state (no blending needed - movement is paused during it) ---
+	bool _drinkSequenceActive;
+	float _drinkSequenceRevertTime;
 
 	protected override void OnAwake()
 	{
@@ -57,12 +86,60 @@ public class PlayerAnimationDriver : Component
 
 		if ( AnimHelper is not null && AnimHelper.Target is null && _bodyRenderer is not null )
 			AnimHelper.Target = _bodyRenderer;
+
+		SetupBoneBlending();
+	}
+
+	protected override void OnDestroy()
+	{
+		try { _sampleModel?.Delete(); } catch { }
+	}
+
+	/// <summary>
+	/// Resolves the upper-body bone list and spins up the hidden sample model used to scrub
+	/// attack sequences without ever touching the main animgraph. Best-effort: if the model has
+	/// no matching bones, or SceneModel creation fails for any reason, _overrideBones/_sampleModel
+	/// stay null and attacks just fall back to the old full-body swap (see TryPlaySequenceBlended)
+	/// - still better than no animation at all, just without the leg-blend.
+	/// </summary>
+	void SetupBoneBlending()
+	{
+		try
+		{
+			if ( _bodyRenderer?.Model is null )
+				return;
+
+			_overrideBones = UpperBodyBones
+				.Select( name => _bodyRenderer.Model.Bones.GetBone( name ) )
+				.Where( b => b is not null )
+				.ToArray();
+
+			Log.Info( $"[AnimBlend] Resolved {_overrideBones.Length}/{UpperBodyBones.Length} upper-body bones on model '{_bodyRenderer.Model?.ResourceName}'." );
+
+			if ( _overrideBones.Length == 0 )
+			{
+				Log.Warning( "[AnimBlend] No bones resolved - bone-blend attacks will fall back to full-body swap. Check that the model's bone names match the Citizen rig (spine_0, clavicle_L, etc.)." );
+				_overrideBones = null;
+				return;
+			}
+
+			_sampleModel = new SceneModel( Scene.SceneWorld, _bodyRenderer.Model, new Transform( new Vector3( 0, 0, -10000 ) ) );
+			_sampleModel.UseAnimGraph = false;
+			Log.Info( "[AnimBlend] Hidden sample model created OK." );
+		}
+		catch ( System.Exception ex )
+		{
+			Log.Warning( $"[AnimBlend] SetupBoneBlending failed: {ex.Message}" );
+			_overrideBones = null;
+			_sampleModel = null;
+		}
 	}
 
 	protected override void OnUpdate()
 	{
 		DriveLocomotion();
-		DriveSequenceRevert();
+		DriveDrinkSequenceRevert();
+		DriveAttackBoneOverrides();
 		DriveAttackVisual();
 		DriveDrinkVisual();
 	}
@@ -84,7 +161,7 @@ public class PlayerAnimationDriver : Component
 		_swingDuration = def.AnimationDuration > 0f ? def.AnimationDuration : System.MathF.Max( 0.1f, def.Recovery + 0.1f );
 		_swingStrength = def.ImpactStrength;
 
-		_usingClipVisual = TryPlaySequence( def.Animation, _swingDuration );
+		_usingClipVisual = TryPlaySequenceBlended( def.Animation, _swingDuration );
 	}
 
 	public void PlayFinisher( FinisherDefinition def )
@@ -93,25 +170,63 @@ public class PlayerAnimationDriver : Component
 		_swingDuration = def.AnimationDuration > 0f ? def.AnimationDuration : System.MathF.Max( 0.2f, def.StaggerTime * 0.6f + 0.2f );
 		_swingStrength = 1.2f;
 
-		_usingClipVisual = TryPlaySequence( def.Animation, _swingDuration );
+		_usingClipVisual = TryPlaySequenceBlended( def.Animation, _swingDuration );
 	}
 
-	/// <summary>Called by DrinkMeter the instant a glass is triggered - plays the "chug" beat.</summary>
+	/// <summary>Called by DrinkMeter the instant a glass is triggered - plays the "chug" beat.
+	/// Movement is paused for the whole drink, so this uses the simple full-body swap rather than
+	/// the attack blend path - there's no locomotion to protect.</summary>
 	public void PlayDrink( string animName, float duration )
 	{
 		_drinkStartTime = Time.Now;
 		_drinkDuration = System.MathF.Max( 0.2f, duration );
 		_isDrinkingVisual = true;
 
-		_usingDrinkClipVisual = TryPlaySequence( animName, _drinkDuration );
+		_usingDrinkClipVisual = TryPlaySequenceFull( animName, _drinkDuration );
 	}
 
 	/// <summary>
-	/// Best-effort: temporarily disables the Citizen anim graph and plays a named sequence
-	/// directly. Returns true if it looks like it took. See class remarks - this is a known
-	/// rough edge, so any failure here just means we fall back to the procedural lunge.
+	/// Attack path: leaves the main animgraph running (legs keep walking) and instead scrubs the
+	/// clip on a hidden secondary SceneModel, which DriveAttackBoneOverrides blends onto just the
+	/// upper-body bones every frame. See PLAN_AnimationBlending.md. Falls back to a full-body swap
+	/// if the bone-blend setup isn't available on this model.
 	/// </summary>
-	bool TryPlaySequence( string sequenceName, float duration )
+	bool TryPlaySequenceBlended( string sequenceName, float duration )
+	{
+		if ( string.IsNullOrEmpty( sequenceName ) )
+			return false;
+
+		if ( _sampleModel is null || _overrideBones is null )
+		{
+			Log.Info( $"[AnimBlend] '{sequenceName}': no sample model/bones, falling back to full-body swap." );
+			return TryPlaySequenceFull( sequenceName, duration );
+		}
+
+		try
+		{
+			_sampleModel.CurrentSequence.Name = sequenceName;
+			_sampleModel.CurrentSequence.Time = 0f;
+
+			_sequenceTime = 0f;
+			_currentBlendWeight = 0f;
+			_attackSequenceActive = true;
+			_attackSequenceRevertTime = Time.Now + duration;
+
+			Log.Info( $"[AnimBlend] Playing '{sequenceName}' (blended, {duration:0.00}s). CurrentSequence.Name now reads back as '{_sampleModel.CurrentSequence.Name}'." );
+			return true;
+		}
+		catch ( System.Exception ex )
+		{
+			Log.Warning( $"[AnimBlend] '{sequenceName}' blended playback threw: {ex.Message}" );
+			_attackSequenceActive = false;
+			return false;
+		}
+	}
+
+	/// <summary>Old/simple approach: fully disables the animgraph on the main body and plays the
+	/// sequence directly. Used for the drink chug (no locomotion to preserve) and as the fallback
+	/// if the attack bone-blend setup isn't available on this model.</summary>
+	bool TryPlaySequenceFull( string sequenceName, float duration )
 	{
 		if ( string.IsNullOrEmpty( sequenceName ) || _bodyRenderer is null )
 			return false;
@@ -125,26 +240,27 @@ public class PlayerAnimationDriver : Component
 			sceneModel.UseAnimGraph = false;
 			sceneModel.CurrentSequence.Name = sequenceName;
 
-			_sequenceActive = true;
-			_sequenceRevertTime = Time.Now + duration;
+			_drinkSequenceActive = true;
+			_drinkSequenceRevertTime = Time.Now + duration;
+			Log.Info( $"[AnimBlend] Playing '{sequenceName}' (full-body swap, {duration:0.00}s)." );
 			return true;
 		}
-		catch
+		catch ( System.Exception ex )
 		{
-			// Sequence name not found, API shape different than expected, etc - not fatal.
-			_sequenceActive = false;
+			Log.Warning( $"[AnimBlend] '{sequenceName}' full-body playback threw: {ex.Message}" );
+			_drinkSequenceActive = false;
 			return false;
 		}
 	}
 
-	void DriveSequenceRevert()
+	void DriveDrinkSequenceRevert()
 	{
-		if ( !_sequenceActive )
+		if ( !_drinkSequenceActive )
 			return;
 
-		if ( Time.Now >= _sequenceRevertTime )
+		if ( Time.Now >= _drinkSequenceRevertTime )
 		{
-			_sequenceActive = false;
+			_drinkSequenceActive = false;
 
 			try
 			{
@@ -155,6 +271,76 @@ public class PlayerAnimationDriver : Component
 			{
 				// If this fails there's nothing more we can safely do from here.
 			}
+		}
+	}
+
+	/// <summary>
+	/// The core of the blend plan: scrubs the hidden sample model forward in time, computes a
+	/// fade-in/fade-out blend weight (see PLAN_AnimationBlending.md's blend curve), and overrides
+	/// each upper-body bone on the real body renderer with a lerp between its current animgraph
+	/// pose and the sampled attack pose. Cleans up via ClearPhysicsBones() once the attack ends.
+	/// </summary>
+	void DriveAttackBoneOverrides()
+	{
+		if ( !_attackSequenceActive )
+			return;
+
+		if ( _sampleModel is null || _overrideBones is null || _bodyRenderer is null )
+		{
+			_attackSequenceActive = false;
+			return;
+		}
+
+		if ( Time.Now >= _attackSequenceRevertTime )
+		{
+			_attackSequenceActive = false;
+			_currentBlendWeight = 0f;
+
+			try { _bodyRenderer.ClearPhysicsBones(); } catch { }
+			return;
+		}
+
+		bool isFirstFrame = _sequenceTime <= 0f;
+		int hitCount = 0, missCount = 0;
+
+		try
+		{
+			_sequenceTime += Time.Delta;
+			_sampleModel.CurrentSequence.Time = _sequenceTime;
+
+			var fadeIn = BlendInDuration > 0f ? System.Math.Clamp( _sequenceTime / BlendInDuration, 0f, 1f ) : 1f;
+			var remaining = _attackSequenceRevertTime - Time.Now;
+			var fadeOut = BlendOutDuration > 0f ? System.Math.Clamp( remaining / BlendOutDuration, 0f, 1f ) : 1f;
+			_currentBlendWeight = System.MathF.Min( fadeIn, fadeOut );
+
+			foreach ( var bone in _overrideBones )
+			{
+				if ( !_bodyRenderer.TryGetBoneTransformAnimation( bone, out var animTx ) )
+				{
+					missCount++;
+					continue;
+				}
+
+				var attackTx = _sampleModel.GetBoneWorldTransform( bone.Index );
+				// Fully-qualified: bare "Transform" here would resolve to Component.Transform
+				// (this component's own GameTransform property), not the Sandbox.Transform
+				// struct type - that's what caused CS1061 "GameTransform does not contain Lerp".
+				var blended = Sandbox.Transform.Lerp( animTx, attackTx, _currentBlendWeight );
+				_bodyRenderer.SetBoneTransform( bone, blended );
+				hitCount++;
+			}
+
+			if ( isFirstFrame )
+				Log.Info( $"[AnimBlend] First blend frame: {hitCount} bones overridden, {missCount} missed (TryGetBoneTransformAnimation returned false), weight={_currentBlendWeight:0.00}, sampleSeqTime={_sampleModel.CurrentSequence.Time:0.000}." );
+		}
+		catch ( System.Exception ex )
+		{
+			// Any API shape mismatch here - bail out of the blend for the rest of this attack
+			// rather than risking a per-frame exception storm.
+			Log.Warning( $"[AnimBlend] DriveAttackBoneOverrides threw, disabling blend for this attack: {ex.Message}" );
+			_attackSequenceActive = false;
+			_currentBlendWeight = 0f;
+			try { _bodyRenderer.ClearPhysicsBones(); } catch { }
 		}
 	}
 
@@ -198,7 +384,7 @@ public class PlayerAnimationDriver : Component
 	}
 
 	/// <summary>Procedural "chug" fallback: tilts the model back and dips it slightly, distinct from
-	/// the attack lunge curve. Skipped if a real Animation clip took over via TryPlaySequence.</summary>
+	/// the attack lunge curve. Skipped if a real Animation clip took over via TryPlaySequenceFull.</summary>
 	void DriveDrinkVisual()
 	{
 		if ( !_isDrinkingVisual || ModelPivot is null )

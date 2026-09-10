@@ -896,7 +896,7 @@
               "MaterialGroup": null,
               "MaterialOverride": null,
               "Materials": null,
-              "Model": "models/citizen/citizen.vmdl",
+              "Model": "animations/retargeted/player_animations.vmdl",
               "Morphs": {},
               "OnComponentDestroy": null,
               "OnComponentDisabled": null,
