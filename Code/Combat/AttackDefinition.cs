@@ -56,7 +56,7 @@ public class AttackDefinition
 
 public static class AttackLibrary
 {
-	public static readonly IReadOnlyDictionary<AttackId, AttackDefinition> All = new Dictionary<AttackId, AttackDefinition>
+	public static readonly Dictionary<AttackId, AttackDefinition> All = new Dictionary<AttackId, AttackDefinition>
 	{
 		[AttackId.Punch] = new()
 		{
