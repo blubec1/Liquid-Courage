@@ -296,6 +296,9 @@ public class PlayerAnimationDriver : Component
 			_attackSequenceActive = false;
 			_currentBlendWeight = 0f;
 
+			// Move the sample model back offscreen now that blending is done.
+			_sampleModel.Transform = new Transform( new Vector3( 0, 0, -10000 ) );
+
 			try { _bodyRenderer.ClearPhysicsBones(); } catch { }
 			return;
 		}
@@ -308,30 +311,51 @@ public class PlayerAnimationDriver : Component
 			_sequenceTime += Time.Delta;
 			_sampleModel.CurrentSequence.Time = _sequenceTime;
 
+			// Flush the new sequence time into the sample model's bone state so
+			// GetBoneWorldTransform returns the current pose, not stale bind data.
+			_sampleModel.Update( 0f );
+
 			var fadeIn = BlendInDuration > 0f ? System.Math.Clamp( _sequenceTime / BlendInDuration, 0f, 1f ) : 1f;
 			var remaining = _attackSequenceRevertTime - Time.Now;
 			var fadeOut = BlendOutDuration > 0f ? System.Math.Clamp( remaining / BlendOutDuration, 0f, 1f ) : 1f;
 			_currentBlendWeight = System.MathF.Min( fadeIn, fadeOut );
 
+			// Hide the sample model so it doesn't render — it's only here for bone data.
+			_sampleModel.RenderingEnabled = false;
+			_sampleModel.Transform = _bodyRenderer.SceneModel.Transform;
+
+			var modelWorldTx = _bodyRenderer.SceneModel.Transform;
+
 			foreach ( var bone in _overrideBones )
 			{
-				if ( !_bodyRenderer.TryGetBoneTransformAnimation( bone, out var animTx ) )
+				// TryGetBoneTransformAnimation returns the pure animation output (before physics/procedural
+				// and before any SetBoneOverride effects), avoiding a feedback loop where previously-set
+				// overrides contaminate the next frame's read.
+				if ( !_bodyRenderer.TryGetBoneTransformAnimation( bone, out var animWorldTx ) )
 				{
 					missCount++;
 					continue;
 				}
 
-				var attackTx = _sampleModel.GetBoneWorldTransform( bone.Index );
-				// Fully-qualified: bare "Transform" here would resolve to Component.Transform
-				// (this component's own GameTransform property), not the Sandbox.Transform
-				// struct type - that's what caused CS1061 "GameTransform does not contain Lerp".
-				var blended = Sandbox.Transform.Lerp( animTx, attackTx, _currentBlendWeight );
-				_bodyRenderer.SetBoneTransform( bone, blended );
+				// Both are world-space at the same world position (sample model synced above).
+				var attackWorldTx = _sampleModel.GetBoneWorldTransform( bone.Index );
+				var blendedWorld = animWorldTx.LerpTo( attackWorldTx, _currentBlendWeight );
+
+				// SetBoneOverride (called by SetBoneTransform) expects model-local coordinates.
+				// Convert the world-space blend result via the SceneModel's world transform.
+				var blendedLocal = modelWorldTx.ToLocal( blendedWorld );
+				_bodyRenderer.SetBoneTransform( bone, blendedLocal );
 				hitCount++;
 			}
 
 			if ( isFirstFrame )
-				Log.Info( $"[AnimBlend] First blend frame: {hitCount} bones overridden, {missCount} missed (TryGetBoneTransformAnimation returned false), weight={_currentBlendWeight:0.00}, sampleSeqTime={_sampleModel.CurrentSequence.Time:0.000}." );
+			{
+				// Dump a few raw transforms so we can verify the values are sane at runtime.
+				_bodyRenderer.TryGetBoneTransformAnimation( _overrideBones[0], out var diagAnim );
+				var diagAttack = _sampleModel.GetBoneWorldTransform( _overrideBones[0].Index );
+				Log.Info( $"[AnimBlend] First blend frame: {hitCount} bones overridden, {missCount} missed, weight={_currentBlendWeight:0.00}, sampleSeqTime={_sampleModel.CurrentSequence.Time:0.000}." );
+				Log.Info( $"[AnimBlend]   bone[0]='{_overrideBones[0].Name}' animPos={diagAnim.Position:0.00} attackPos={diagAttack.Position:0.00}" );
+			}
 		}
 		catch ( System.Exception ex )
 		{
@@ -340,6 +364,7 @@ public class PlayerAnimationDriver : Component
 			Log.Warning( $"[AnimBlend] DriveAttackBoneOverrides threw, disabling blend for this attack: {ex.Message}" );
 			_attackSequenceActive = false;
 			_currentBlendWeight = 0f;
+			_sampleModel.Transform = new Transform( new Vector3( 0, 0, -10000 ) );
 			try { _bodyRenderer.ClearPhysicsBones(); } catch { }
 		}
 	}

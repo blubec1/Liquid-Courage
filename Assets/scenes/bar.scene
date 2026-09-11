@@ -836,6 +836,8 @@
           "__enabled": true,
           "Flags": 0,
           "AnimHelper": null,
+          "BlendInDuration": 0.08,
+          "BlendOutDuration": 0.12,
           "LungeDistance": 14,
           "ModelPivot": null,
           "OnComponentDestroy": null,
