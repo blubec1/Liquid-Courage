@@ -161,7 +161,9 @@ public class PlayerAnimationDriver : Component
 		_swingDuration = def.AnimationDuration > 0f ? def.AnimationDuration : System.MathF.Max( 0.1f, def.Recovery + 0.1f );
 		_swingStrength = def.ImpactStrength;
 
-		_usingClipVisual = TryPlaySequenceBlended( def.Animation, _swingDuration );
+		_usingClipVisual = def.DisableBlending
+			? TryPlaySequenceFull( def.Animation, _swingDuration )
+			: TryPlaySequenceBlended( def.Animation, _swingDuration );
 	}
 
 	public void PlayFinisher( FinisherDefinition def )
@@ -170,7 +172,9 @@ public class PlayerAnimationDriver : Component
 		_swingDuration = def.AnimationDuration > 0f ? def.AnimationDuration : System.MathF.Max( 0.2f, def.StaggerTime * 0.6f + 0.2f );
 		_swingStrength = 1.2f;
 
-		_usingClipVisual = TryPlaySequenceBlended( def.Animation, _swingDuration );
+		_usingClipVisual = def.DisableBlending
+			? TryPlaySequenceFull( def.Animation, _swingDuration )
+			: TryPlaySequenceBlended( def.Animation, _swingDuration );
 	}
 
 	/// <summary>Called by DrinkMeter the instant a glass is triggered - plays the "chug" beat.
@@ -279,6 +283,31 @@ public class PlayerAnimationDriver : Component
 	/// fade-in/fade-out blend weight (see PLAN_AnimationBlending.md's blend curve), and overrides
 	/// each upper-body bone on the real body renderer with a lerp between its current animgraph
 	/// pose and the sampled attack pose. Cleans up via ClearPhysicsBones() once the attack ends.
+	///
+	/// Coordinate-space pipeline (critical — several bugs were caused by getting this wrong):
+	///
+	///   1. TryGetBoneTransformAnimation → world-space, animation-only (before physics/procedural
+	///      and before SetBoneOverride). Must NOT use TryGetBoneTransformLocal here — that returns
+	///      the FINAL bone state including previous overrides, creating a feedback loop where the
+	///      blend compounds each frame.
+	///
+	///   2. GetBoneWorldTransform on the sample model → world-space. The sample model is synced to
+	///      the body renderer's world position each frame so these are directly comparable.
+	///      The sample model also needs Update(0f) after setting CurrentSequence.Time or
+	///      GetBoneWorldTransform returns stale bind-pose data.
+	///
+	///   3. Lerp in world-space (both values are now comparable).
+	///
+	///   4. SetBoneOverride (via SetBoneTransform) expects MODEL-LOCAL coordinates — i.e. the
+	///      bone's position relative to the SceneModel's own world transform. We convert from
+	///      world-space via modelWorldTx.ToLocal(blendedWorld). Do NOT use SetBoneWorldTransform
+	///      here — it's a one-shot override that the animgraph immediately overwrites next frame.
+	///      SetBoneOverride persists until ClearBoneOverrides/ClearPhysicsBones.
+	///
+	///   5. The sample model is hidden via RenderingEnabled = false (not by position) while its
+	///      position is synced for the blend. RenderingEnabled = false does NOT suppress bone
+	///      updates — it only controls mesh visibility. The model is moved back to (0,0,-10000)
+	///      when the blend ends.
 	/// </summary>
 	void DriveAttackBoneOverrides()
 	{

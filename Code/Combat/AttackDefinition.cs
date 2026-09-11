@@ -52,6 +52,9 @@ public class AttackDefinition
 
 	/// <summary>How long the animation should hold before returning to normal locomotion. 0 = derive from Recovery.</summary>
 	public float AnimationDuration;
+
+	/// <summary>When true, this attack uses full-body sequence swap instead of bone-level blending.</summary>
+	public bool DisableBlending;
 }
 
 public static class AttackLibrary
@@ -75,6 +78,7 @@ public static class AttackLibrary
 		[AttackId.Kick] = new()
 		{
 			Id = AttackId.Kick,
+			DisableBlending = true,
 			Animation = "Roundhouse_Kick_2",
 			AnimationDuration = 0.8f,
 			Name = "Kick",

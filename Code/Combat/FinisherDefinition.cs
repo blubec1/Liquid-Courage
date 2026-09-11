@@ -37,11 +37,14 @@ public class FinisherDefinition
 	/// <summary>Name of a Citizen-compatible animation sequence for this finisher, or null/empty for the procedural version.</summary>
 	public string Animation;
 	public float AnimationDuration;
+
+	/// <summary>When true, this finisher uses full-body sequence swap instead of bone-level blending.</summary>
+	public bool DisableBlending;
 }
 
 public static class FinisherLibrary
 {
-	public static readonly IReadOnlyList<FinisherDefinition> All = new List<FinisherDefinition>
+	public static readonly List<FinisherDefinition> All = new List<FinisherDefinition>
 	{
 		new()
 		{
@@ -60,6 +63,8 @@ public static class FinisherLibrary
 		new()
 		{
 			Id = FinisherId.SweepBreaker,
+			Animation = "Hurricane_Kick_2",
+			DisableBlending = true,
 			Name = "Sweep Breaker",
 			Sequence = new[] { AttackId.Kick, AttackId.Punch, AttackId.Heavy },
 			Damage = 50,
@@ -74,6 +79,7 @@ public static class FinisherLibrary
 		new()
 		{
 			Id = FinisherId.FlurryJab,
+			Animation = "Punching_Bag_2",
 			Name = "Flurry Jab",
 			Sequence = new[] { AttackId.Punch, AttackId.Kick, AttackId.Punch },
 			Damage = 32,

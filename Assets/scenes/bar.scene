@@ -853,7 +853,7 @@
           "__guid": "1c9d8a2e-4f6b-4a7c-9d3e-2b8f5a6c7d9e",
           "__enabled": true,
           "Flags": 0,
-          "DrinkAnimation": "",
+          "DrinkAnimation": "Drinking_2",
           "DrinkAnimationDuration": 0.9,
           "FreezeDuration": 0.9,
           "MaxValue": 100,
