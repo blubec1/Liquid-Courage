@@ -23,7 +23,9 @@ public abstract class EnemyBase : Component
 	[Property, Group( "Stats" )] public float SoberingAmount { get; set; } = 18f;
 
 	[Property, Group( "Time Scaling" )] public float HpRampPerSecond { get; set; } = 0.006f;
-	[Property, Group( "Time Scaling" )] public float DamageRampPerSecond { get; set; } = 0.004f;
+	// Lowered from 0.004: at the old rate, a 5-minute run made every enemy hit ~2.2x harder on top
+	// of getting surrounded more often, which turned late runs into an unavoidable death spiral.
+	[Property, Group( "Time Scaling" )] public float DamageRampPerSecond { get; set; } = 0.0025f;
 
 	[Property] public Sandbox.Citizen.CitizenAnimationHelper AnimHelper { get; set; }
 	[Property] public SkinnedModelRenderer BodyRenderer { get; set; }
@@ -40,7 +42,20 @@ public abstract class EnemyBase : Component
 	bool _pendingWasFinisher;
 	bool _pendingWasEnvironmental;
 	float _deathStartTime = -1f;
-	const float DeathVisualDuration = 0.25f;
+
+	// Real physics ragdoll on death via Sandbox.ModelPhysics (added to this GameObject, which
+	// already carries the SkinnedModelRenderer). The animgraph is switched off first so it stops
+	// fighting the physics-driven pose. Total lifetime from death to despawn is 3 seconds: a short
+	// ragdoll hold so the fall actually reads, then a fade over the remainder.
+	const float RagdollHoldDuration = 1.2f;
+	const float FadeDuration = 1.8f;
+
+	// Knockback is tuned to look right as a kinematic slide (WorldPosition += velocity * Time.Delta
+	// with drag decay) - handed to a real physics ragdoll at full strength it launches the body
+	// across the map instead of a small, believable stumble. Heavily damp and clamp it - "small
+	// ragdoll" is the ask, not a catapult.
+	const float RagdollKnockbackScale = 0.1f;
+	const float MaxRagdollKnockbackSpeed = 60f;
 
 	protected virtual void SetDefaults() { }
 
@@ -85,6 +100,14 @@ public abstract class EnemyBase : Component
 
 	protected override void OnUpdate()
 	{
+		if ( IsDead )
+		{
+			// Physics (or nothing, if ragdoll setup failed) owns position/rotation from here on -
+			// don't fight it with the manual knockback slide below.
+			UpdateDeathVisual();
+			return;
+		}
+
 		// Knockback slide always plays, even mid-stagger - it's part of the impact feedback.
 		if ( _knockbackVelocity.Length > 1f )
 		{
@@ -92,12 +115,6 @@ public abstract class EnemyBase : Component
 			pos = new Vector3( pos.x, pos.y, _spawnZ );
 			WorldPosition = pos;
 			_knockbackVelocity = Vector3.Lerp( _knockbackVelocity, Vector3.Zero, System.Math.Clamp( Time.Delta * 9f, 0f, 1f ) );
-		}
-
-		if ( IsDead )
-		{
-			UpdateDeathVisual();
-			return;
 		}
 
 		if ( AnimHelper is not null )
@@ -238,6 +255,35 @@ public abstract class EnemyBase : Component
 		IsDead = true;
 		_deathStartTime = Time.Now;
 
+		try
+		{
+			// Stop the animgraph from fighting the physics-driven pose.
+			if ( AnimHelper is not null )
+				AnimHelper.Enabled = false;
+
+			if ( BodyRenderer?.SceneModel is not null )
+				BodyRenderer.SceneModel.UseAnimGraph = false;
+
+			// Hand the body over to real physics. Citizen-based models ship with ragdoll bones
+			// already set up, and this GameObject already carries the SkinnedModelRenderer, so
+			// ModelPhysics picks it up the same way every other sibling-component setup in this
+			// project auto-wires (AnimHelper -> renderer, etc.).
+			Components.Create<Sandbox.ModelPhysics>();
+
+			// Give the knockback some starting momentum to carry into the fall, heavily damped -
+			// see the constants' comment above.
+			var rigidbody = Components.Get<Rigidbody>();
+			if ( rigidbody is not null )
+			{
+				var ragdollKick = _knockbackVelocity * RagdollKnockbackScale;
+				if ( ragdollKick.Length > MaxRagdollKnockbackSpeed )
+					ragdollKick = ragdollKick.Normal * MaxRagdollKnockbackSpeed;
+
+				rigidbody.Velocity += ragdollKick;
+			}
+		}
+		catch { }
+
 		var info = new EnemyKillInfo
 		{
 			Enemy = this,
@@ -255,10 +301,19 @@ public abstract class EnemyBase : Component
 
 	void UpdateDeathVisual()
 	{
-		var t = System.Math.Clamp( (Time.Now - _deathStartTime) / DeathVisualDuration, 0f, 1f );
-		WorldScale = Vector3.One * (1f - t);
+		var elapsed = Time.Now - _deathStartTime;
 
-		if ( t >= 1f )
+		// Ragdoll physics (or nothing, if it failed to activate) fully owns position/rotation
+		// during this window - the body is never manually flipped or posed from code.
+		if ( elapsed <= RagdollHoldDuration )
+			return;
+
+		var fadeT = System.Math.Clamp( (elapsed - RagdollHoldDuration) / FadeDuration, 0f, 1f );
+
+		try { WorldScale = Vector3.One * (1f - fadeT); }
+		catch { }
+
+		if ( fadeT >= 1f )
 			GameObject.Destroy();
 	}
 }

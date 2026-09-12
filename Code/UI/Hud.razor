@@ -11,6 +11,8 @@
 
 		<div class="blackout @(ShowBlackout ? "visible" : "")" style="opacity:@(BlackoutFraction); background:radial-gradient(ellipse at center, transparent @(38f - BlackoutFraction * 24f)%, black 96%);"></div>
 
+		<div class="damage-vignette @(HasDamageFlash ? "visible" : "")" style="opacity:@(DamageFlashOpacity);"></div>
+
 		<div class="top-left">
 			<div class="bar-label">HP</div>
 			<div class="hp-bar-bg">
@@ -171,6 +173,32 @@
 		_drinkFlashEnd = Time.Now + 0.35f;
 	}
 
+	// --- Damage feedback ---
+	float _damageFlashStart = -999f;
+	float _damageFlashPeak;
+	const float DamageFlashDuration = 0.4f;
+
+	public bool HasDamageFlash => Time.Now - _damageFlashStart < DamageFlashDuration;
+
+	public float DamageFlashOpacity
+	{
+		get
+		{
+			if ( !HasDamageFlash )
+				return 0f;
+
+			var t = System.Math.Clamp( (Time.Now - _damageFlashStart) / DamageFlashDuration, 0f, 1f );
+			// Snap in, ease out - reads as a jolt rather than a slow bruise fading in.
+			return _damageFlashPeak * (1f - t * t);
+		}
+	}
+
+	void OnPlayerDamaged( float amount, float fraction01 )
+	{
+		_damageFlashStart = Time.Now;
+		_damageFlashPeak = System.Math.Clamp( 0.25f + fraction01 * 1.8f, 0.25f, 0.8f );
+	}
+
 	// --- Cooldown / crosshair ---
 	public float CooldownFraction => PlayerCombat.Local?.CooldownFraction01 ?? 1f;
 
@@ -204,6 +232,7 @@
 		GameEvents.Milestone += OnMilestone;
 		GameEvents.DrinkTriggered += OnDrinkTriggered;
 		GameEvents.ComboHit += OnComboHit;
+		GameEvents.PlayerDamaged += OnPlayerDamaged;
 	}
 
 	protected override void OnDestroy()
@@ -211,6 +240,7 @@
 		GameEvents.Milestone -= OnMilestone;
 		GameEvents.DrinkTriggered -= OnDrinkTriggered;
 		GameEvents.ComboHit -= OnComboHit;
+		GameEvents.PlayerDamaged -= OnPlayerDamaged;
 	}
 
 	// s&box Razor panels only rebuild when this hash changes - without it the HUD renders once
@@ -242,7 +272,7 @@
 			(int)(Time.Now * 12),
 			PlayerCombat.Local?.CooldownFraction01 );
 
-		return System.HashCode.Combine( h1, h2, ShowHud );
+		return System.HashCode.Combine( h1, h2, ShowHud, HasDamageFlash );
 	}
 }
 
@@ -273,6 +303,14 @@
 		width: 100%;
 		height: 100%;
 		transition: opacity 0.5s ease;
+	}
+
+	.damage-vignette {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		opacity: 0;
+		background: radial-gradient(ellipse at center, transparent 35%, rgba(180,0,10,0.9) 100%);
 	}
 
 	.top-left {

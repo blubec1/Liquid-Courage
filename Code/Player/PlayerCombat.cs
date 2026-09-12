@@ -68,21 +68,19 @@ public class PlayerCombat : Component
 		_lastCooldownDuration = MathF.Max( 0.05f, def.Cooldown * cooldownMult );
 		_nextReadyTime = Time.Now + _lastCooldownDuration;
 
-		var wasVaried = _lastPerformedAttack is null || _lastPerformedAttack.Value != id;
-		GameEvents.RaiseAttackPerformed( id, wasVaried );
-		_lastPerformedAttack = id;
-
+		// Attack-string tracking (for finisher recognition) still runs on every press, regardless
+		// of whether it lands - a finisher is a sequence of inputs, not a sequence of connects.
 		var finisher = AttackStringSystem.Local?.RecordAndCheck( id );
 		if ( finisher is not null )
 		{
-			PerformFinisher( finisher );
+			PerformFinisher( finisher, id );
 			return;
 		}
 
-		PerformBasicAttack( def );
+		PerformBasicAttack( def, id );
 	}
 
-	void PerformBasicAttack( AttackDefinition def )
+	void PerformBasicAttack( AttackDefinition def, AttackId id )
 	{
 		var origin = WorldPosition;
 		var facing = WorldRotation.Forward;
@@ -102,13 +100,17 @@ public class PlayerCombat : Component
 		HitFeedback.PlayAttackImpact( def.ImpactStrength, hits.Count );
 		PlayerAnimationDriver.Local?.PlayAttackSwing( def );
 
-		// Combo now lives or dies purely on whether you're actually connecting - a whiff never
-		// extends it, no matter how varied your attacks are (see ComboSystem).
+		// Combo, variety, and the score multiplier all now live or die purely on whether you're
+		// actually connecting - a whiff never extends the combo streak or the style/variety bonus,
+		// no matter how varied your attacks are (see ComboSystem/StyleSystem).
 		if ( hits.Count > 0 )
+		{
 			ComboSystem.Local?.RegisterHit( hits.Count );
+			RaiseAttackPerformed( id );
+		}
 	}
 
-	void PerformFinisher( FinisherDefinition finisher )
+	void PerformFinisher( FinisherDefinition finisher, AttackId id )
 	{
 		var origin = WorldPosition;
 		var facing = WorldRotation.Forward;
@@ -129,8 +131,19 @@ public class PlayerCombat : Component
 		PlayerAnimationDriver.Local?.PlayFinisher( finisher );
 
 		if ( hits.Count > 0 )
+		{
 			ComboSystem.Local?.RegisterHit( hits.Count );
+			RaiseAttackPerformed( id );
+			GameEvents.RaiseFinisherExecuted( finisher, hits.Count );
+		}
+	}
 
-		GameEvents.RaiseFinisherExecuted( finisher, hits.Count );
+	/// <summary>Only called once an attack actually connects - drives StyleSystem's variety bonus,
+	/// which used to build up on whiffed swings too and inflate the score multiplier for free.</summary>
+	void RaiseAttackPerformed( AttackId id )
+	{
+		var wasVaried = _lastPerformedAttack is null || _lastPerformedAttack.Value != id;
+		GameEvents.RaiseAttackPerformed( id, wasVaried );
+		_lastPerformedAttack = id;
 	}
 }
