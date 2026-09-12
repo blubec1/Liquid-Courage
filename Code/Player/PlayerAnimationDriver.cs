@@ -15,6 +15,10 @@ namespace DrunkenBarFight;
 /// duration (see DrinkMeter/PlayerMovement/PlayerFacing), so there's no locomotion to protect,
 /// and it just does a plain full-body sequence swap the simple way.
 ///
+/// Drunk walk (see DriveDrunkWalk) uses that same full-body swap, but held for as long as the
+/// player is both drunk enough and actually moving, instead of a fixed duration - it's off by
+/// default (DrunkWalkAnimation empty) until a stumble-walk clip is wired up.
+///
 /// Every step here is best-effort and wrapped defensively: if a clip name is wrong, a bone
 /// doesn't resolve, or an API doesn't behave as expected, it falls back all the way to the
 /// original procedural lunge/squash-stretch rather than breaking combat.
@@ -31,6 +35,14 @@ public class PlayerAnimationDriver : Component
 
 	[Property, Group( "Attack Blending" )] public float BlendInDuration { get; set; } = 0.08f;
 	[Property, Group( "Attack Blending" )] public float BlendOutDuration { get; set; } = 0.12f;
+
+	// Drunk walk: once the player is drunk enough AND actually moving, swap the whole body onto a
+	// looping stumble-walk clip instead of the normal Citizen locomotion animgraph (same full-body
+	// swap mechanism as attacks/drink - see TryPlaySequenceFull). Leave DrunkWalkAnimation blank
+	// until a clip/sequence exists for it; empty string just means "feature off".
+	[Property, Group( "Drunk Walk" )] public string DrunkWalkAnimation { get; set; } = "";
+	[Property, Group( "Drunk Walk" )] public float DrunkWalkThreshold01 { get; set; } = 0.3f;
+	[Property, Group( "Drunk Walk" )] public float DrunkWalkMoveSpeedThreshold { get; set; } = 15f;
 
 	// Citizen rig bone names, upper body only ("spine_0" and up) - see PLAN_AnimationBlending.md.
 	// Everything below this (pelvis, legs, feet) is left entirely animgraph-driven, so locomotion
@@ -69,6 +81,9 @@ public class PlayerAnimationDriver : Component
 	// --- Drink full-body sequence state (no blending needed - movement is paused during it) ---
 	bool _drinkSequenceActive;
 	float _drinkSequenceRevertTime;
+
+	// --- Drunk walk state (see DriveDrunkWalk) ---
+	bool _drunkWalkActive;
 
 	// --- Hit-flash state (see FlashHit) ---
 	const float HitFlashDuration = 0.18f;
@@ -157,6 +172,7 @@ public class PlayerAnimationDriver : Component
 	protected override void OnUpdate()
 	{
 		DriveLocomotion();
+		DriveDrunkWalk();
 		DriveDrinkSequenceRevert();
 		DriveAttackVisual();
 		DriveDrinkVisual();
@@ -304,6 +320,61 @@ public class PlayerAnimationDriver : Component
 			{
 				// If this fails there's nothing more we can safely do from here.
 			}
+		}
+	}
+
+	/// <summary>
+	/// When drunk enough and actually moving, swaps the body onto a looping stumble-walk clip
+	/// instead of the normal Citizen locomotion animgraph - same full-body-swap mechanism as
+	/// TryPlaySequenceFull, just held for as long as the condition holds rather than a fixed
+	/// duration. Defers entirely to an active attack/drink swap (_drinkSequenceActive) so it never
+	/// fights those; DriveDrinkSequenceRevert already hands UseAnimGraph back afterward, and
+	/// clearing _drunkWalkActive here lets this cleanly re-enter next frame instead of thinking
+	/// it's still mid-loop. No-ops entirely until DrunkWalkAnimation is set to a real sequence name.
+	/// </summary>
+	void DriveDrunkWalk()
+	{
+		if ( _bodyRenderer is null || string.IsNullOrEmpty( DrunkWalkAnimation ) )
+			return;
+
+		if ( _drinkSequenceActive )
+		{
+			_drunkWalkActive = false;
+			return;
+		}
+
+		var sceneModel = _bodyRenderer.SceneModel;
+		if ( sceneModel is null )
+			return;
+
+		var fraction = DrunkennessSystem.Local?.Fraction01 ?? 0f;
+		var vel = _cc?.Velocity ?? Vector3.Zero;
+		var groundSpeed = new Vector3( vel.x, vel.y, 0f ).Length;
+		var shouldWalk = fraction >= DrunkWalkThreshold01 && groundSpeed >= DrunkWalkMoveSpeedThreshold;
+
+		if ( shouldWalk )
+		{
+			if ( _drunkWalkActive )
+				return;
+
+			try
+			{
+				sceneModel.UseAnimGraph = false;
+				sceneModel.CurrentSequence.Name = DrunkWalkAnimation;
+				_drunkWalkActive = true;
+				Log.Info( $"[DrunkWalk] Entered drunk-walk loop ('{DrunkWalkAnimation}')." );
+			}
+			catch ( System.Exception ex )
+			{
+				Log.Warning( $"[DrunkWalk] Failed to play '{DrunkWalkAnimation}': {ex.Message}" );
+				_drunkWalkActive = false;
+			}
+		}
+		else if ( _drunkWalkActive )
+		{
+			try { sceneModel.UseAnimGraph = true; }
+			catch { }
+			_drunkWalkActive = false;
 		}
 	}
 

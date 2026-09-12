@@ -21,6 +21,10 @@ public class DrunkennessSystem : Component
 	[Property, Group( "Tuning" )] public float PassiveDecayAmount { get; set; } = 1f;
 	[Property, Group( "Tuning" )] public float PassiveDecayInterval { get; set; } = 15f;
 
+	/// <summary>Below this raw Value, the player isn't drunk enough for ambient effects like camera
+	/// sway to show at all (see ShakeFraction01) - a light buzz shouldn't visibly affect anything.</summary>
+	[Property, Group( "Tuning" )] public float ShakeStartValue { get; set; } = 60f;
+
 	[Property, Group( "Power Scaling" )] public float MaxDamageDealtBonus { get; set; } = 1.0f;
 	[Property, Group( "Power Scaling" )] public float MaxDamageTakenReduction { get; set; } = 0.5f;
 	[Property, Group( "Power Scaling" )] public float MaxMoveSpeedBonus { get; set; } = 0.3f;
@@ -34,6 +38,18 @@ public class DrunkennessSystem : Component
 	public bool IsLastCall => Value >= LastCallThreshold;
 
 	float NormalizedT => Math.Clamp( Value / MaxValue, 0f, 1f );
+
+	/// <summary>Public 0-1 read of how drunk the player currently is (linear, unlike BlackoutFraction01
+	/// which only ramps in the last-call danger zone). Safe to use for continuous ambient effects like
+	/// camera sway - just don't put the raw number on screen (see class doc comment).</summary>
+	public float Fraction01 => NormalizedT;
+
+	/// <summary>0 below ShakeStartValue, then ramps 0-1 from there up to MaxValue. Drives the camera's
+	/// drunk sway (see IsoCameraRig) so it only kicks in once the player is properly drunk, not from
+	/// the very first sip.</summary>
+	public float ShakeFraction01 => MaxValue > ShakeStartValue
+		? Math.Clamp( (Value - ShakeStartValue) / (MaxValue - ShakeStartValue), 0f, 1f )
+		: 0f;
 
 	/// <summary>0 below LastCallThreshold, ramps to 1 as Value approaches MaxValue. Drives the blackout tunnel-vision VFX.</summary>
 	public float BlackoutFraction01 => MaxValue > LastCallThreshold
