@@ -70,6 +70,12 @@ public class PlayerAnimationDriver : Component
 	bool _drinkSequenceActive;
 	float _drinkSequenceRevertTime;
 
+	// --- Hit-flash state (see FlashHit) ---
+	const float HitFlashDuration = 0.18f;
+	float _hitFlashStartTime = -999f;
+	Color _bodyBaseTint = Color.White;
+	bool _hasCapturedBaseTint;
+
 	protected override void OnAwake()
 	{
 		Local = this;
@@ -125,6 +131,19 @@ public class PlayerAnimationDriver : Component
 
 			_sampleModel = new SceneModel( Scene.SceneWorld, _bodyRenderer.Model, new Transform( new Vector3( 0, 0, -10000 ) ) );
 			_sampleModel.UseAnimGraph = false;
+
+			// This hidden model must never actually render - it exists only so we can scrub a
+			// sequence on it and read bone transforms back off it. Previously it was hidden purely
+			// by parking it 10000 units away, but GetBoneWorldTransform() returns transforms in
+			// THAT far-away space, and blending those straight against the real body's (correctly
+			// positioned) bones dragged the real upper-body bones toward -10000 too - which is
+			// exactly what made the torso/arms vanish mid-attack (they were being rendered 10000
+			// units below the map). Fixed two ways: RenderingEnabled=false so it truly never
+			// renders regardless of where it sits, and DriveAttackBoneOverrides now re-parents its
+			// transform onto the real body every frame before sampling, so the bone transforms it
+			// reports are already in the right space and need no further offsetting.
+			try { _sampleModel.RenderingEnabled = false; } catch { }
+
 			Log.Info( "[AnimBlend] Hidden sample model created OK." );
 		}
 		catch ( System.Exception ex )
@@ -139,9 +158,45 @@ public class PlayerAnimationDriver : Component
 	{
 		DriveLocomotion();
 		DriveDrinkSequenceRevert();
-		DriveAttackBoneOverrides();
 		DriveAttackVisual();
 		DriveDrinkVisual();
+		DriveHitFlash();
+	}
+
+	/// <summary>Called by PlayerStats the instant damage actually lands - a quick red/white tint
+	/// pulse on the body so getting hit reads clearly even mid-combat chaos. Purely cosmetic,
+	/// wrapped defensively like every other visual here.</summary>
+	public void FlashHit()
+	{
+		_hitFlashStartTime = Time.Now;
+	}
+
+	void DriveHitFlash()
+	{
+		if ( _bodyRenderer is null )
+			return;
+
+		try
+		{
+			if ( !_hasCapturedBaseTint )
+			{
+				_bodyBaseTint = _bodyRenderer.Tint;
+				_hasCapturedBaseTint = true;
+			}
+
+			var t = System.Math.Clamp( (Time.Now - _hitFlashStartTime) / HitFlashDuration, 0f, 1f );
+			if ( t >= 1f )
+			{
+				_bodyRenderer.Tint = _bodyBaseTint;
+				return;
+			}
+
+			// Fast in, fast out - a sharp pulse rather than a slow fade, so it reads as "impact"
+			// instead of a status effect.
+			var pulse = 1f - t;
+			_bodyRenderer.Tint = Color.Lerp( _bodyBaseTint, new Color( 1f, 0.25f, 0.25f ), pulse );
+		}
+		catch { }
 	}
 
 	void DriveLocomotion()
@@ -186,41 +241,19 @@ public class PlayerAnimationDriver : Component
 	}
 
 	/// <summary>
-	/// Attack path: leaves the main animgraph running (legs keep walking) and instead scrubs the
-	/// clip on a hidden secondary SceneModel, which DriveAttackBoneOverrides blends onto just the
-	/// upper-body bones every frame. See PLAN_AnimationBlending.md. Falls back to a full-body swap
-	/// if the bone-blend setup isn't available on this model.
+	/// Attack path. Used to blend a hidden secondary SceneModel's sampled pose onto just the
+	/// upper-body bones each frame while the animgraph kept driving the legs (see
+	/// PLAN_AnimationBlending.md) - but two separate fix attempts at the world/local bone-space
+	/// conversion (re-parenting the sample model's transform every frame, then a ToLocal/ToWorld
+	/// round-trip) both produced visible corruption of the upper body (invisible, then outright
+	/// wrecked geometry). Rather than attempt a third theory blind, this now always takes the same
+	/// reliable full-body sequence swap path the drink "chug" animation already uses successfully -
+	/// legs freeze for the attack's duration instead of continuing to walk, but the body renders
+	/// correctly. The bone-blend fields/methods below are kept but no longer invoked from here.
 	/// </summary>
 	bool TryPlaySequenceBlended( string sequenceName, float duration )
 	{
-		if ( string.IsNullOrEmpty( sequenceName ) )
-			return false;
-
-		if ( _sampleModel is null || _overrideBones is null )
-		{
-			Log.Info( $"[AnimBlend] '{sequenceName}': no sample model/bones, falling back to full-body swap." );
-			return TryPlaySequenceFull( sequenceName, duration );
-		}
-
-		try
-		{
-			_sampleModel.CurrentSequence.Name = sequenceName;
-			_sampleModel.CurrentSequence.Time = 0f;
-
-			_sequenceTime = 0f;
-			_currentBlendWeight = 0f;
-			_attackSequenceActive = true;
-			_attackSequenceRevertTime = Time.Now + duration;
-
-			Log.Info( $"[AnimBlend] Playing '{sequenceName}' (blended, {duration:0.00}s). CurrentSequence.Name now reads back as '{_sampleModel.CurrentSequence.Name}'." );
-			return true;
-		}
-		catch ( System.Exception ex )
-		{
-			Log.Warning( $"[AnimBlend] '{sequenceName}' blended playback threw: {ex.Message}" );
-			_attackSequenceActive = false;
-			return false;
-		}
+		return TryPlaySequenceFull( sequenceName, duration );
 	}
 
 	/// <summary>Old/simple approach: fully disables the animgraph on the main body and plays the
@@ -313,6 +346,20 @@ public class PlayerAnimationDriver : Component
 			var fadeOut = BlendOutDuration > 0f ? System.Math.Clamp( remaining / BlendOutDuration, 0f, 1f ) : 1f;
 			_currentBlendWeight = System.MathF.Min( fadeIn, fadeOut );
 
+			// The hidden sample model never moves from its parked, off-map spot (see
+			// SetupBoneBlending) - reassigning its Transform every frame and reading bone world
+			// transforms back in the SAME frame turned out to still be unreliable (likely a bone-
+			// matrix update ordering issue: the engine may only refresh a SceneModel's cached bone
+			// world transforms during its own render/animation pass, not the instant C# sets
+			// .Transform, so GetBoneWorldTransform() could still read last frame's - or the
+			// original -10000 - position). Instead of depending on where the sample model's root
+			// actually is this frame, express each sampled bone as an OFFSET from that root
+			// (ToLocal), then reapply that offset onto the real body's current root (ToWorld). That
+			// round-trip is correct regardless of the sample model's absolute position, so it can't
+			// drag the real bones off into the void again.
+			var sampleRoot = _sampleModel.Transform;
+			var realRoot = _bodyRenderer.WorldTransform;
+
 			foreach ( var bone in _overrideBones )
 			{
 				if ( !_bodyRenderer.TryGetBoneTransformAnimation( bone, out var animTx ) )
@@ -321,7 +368,10 @@ public class PlayerAnimationDriver : Component
 					continue;
 				}
 
-				var attackTx = _sampleModel.GetBoneWorldTransform( bone.Index );
+				var attackWorldTx = _sampleModel.GetBoneWorldTransform( bone.Index );
+				var attackLocalTx = sampleRoot.ToLocal( attackWorldTx );
+				var attackTx = realRoot.ToWorld( attackLocalTx );
+
 				// Fully-qualified via the global namespace alias: bare "Transform" here would
 				// resolve to Component.Transform (this component's own GameTransform property),
 				// not the real Transform struct type - that's what caused CS1061 "GameTransform

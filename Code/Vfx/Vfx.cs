@@ -239,6 +239,30 @@ public static class Vfx
 		catch { }
 	}
 
+	/// <summary>Sharp red/dark burst when the player takes damage - deliberately a different
+	/// palette (deep red, no white core) from the yellow/orange hit-sparks the player deals out,
+	/// so it reads unambiguously as "you got hurt" rather than "you landed a hit". Severity01
+	/// (0-1, roughly damage-taken/maxHP) scales how big and how scattered the burst is.</summary>
+	public static void PlayerHit( Vector3 position, float severity01 )
+	{
+		try
+		{
+			var s = MathF.Max( 0.35f, severity01 );
+			var center = position + Vector3.Up * 55f;
+
+			SpawnLightBurst( center, new Color( 0.9f, 0.1f, 0.12f ), 30f * s, 0.18f );
+			SpawnLightBurst( center, new Color( 0.5f, 0.02f, 0.04f ), 46f * s, 0.3f );
+
+			var scatterCount = 3 + (int)MathF.Round( s * 4f );
+			for ( int i = 0; i < scatterCount; i++ )
+			{
+				var dir = RandomHorizontalDir() + Vector3.Up * (0.3f + Random.Shared.NextSingle() * 0.5f);
+				SpawnScatterSpark( center, new Color( 0.8f, 0.08f, 0.1f ), 10f * s, 0.25f + Random.Shared.NextSingle() * 0.15f, dir * (110f + Random.Shared.NextSingle() * 90f) );
+			}
+		}
+		catch { }
+	}
+
 	static void SpawnLightBurst( Vector3 position, Color color, float radius, float duration )
 	{
 		var go = new GameObject( true, "FxLight" ) { WorldPosition = position };
