@@ -5,7 +5,7 @@
 @namespace DrunkenBarFight
 
 <root>
-	<div class="hud-root">
+	<div class="hud-root @(ShowHud ? "" : "menu-hidden")">
 
 		<div class="vignette" style="opacity:@(VignetteOpacity); background:radial-gradient(ellipse at center, transparent 50%, @(VignetteColor) 145%); transform:rotate(@(SwayAngle)deg) translateX(@(SwayOffsetX)px) scale(1.05);"></div>
 
@@ -182,6 +182,10 @@
 	public float CrosshairXFraction => Screen.Width > 0 ? Mouse.Position.x / Screen.Width : 0.5f;
 	public float CrosshairYFraction => Screen.Height > 0 ? Mouse.Position.y / Screen.Height : 0.5f;
 
+	// Hidden entirely while the main menu is up - a fresh main-menu screen shouldn't show HP/combo/
+	// timer bleeding through behind it before a run has even started.
+	public bool ShowHud => GameManager.Instance?.State != RunState.MainMenu;
+
 	// --- Milestone toasts ---
 	string _toastText = "";
 	float _toastEndTime = -999f;
@@ -238,7 +242,7 @@
 			(int)(Time.Now * 12),
 			PlayerCombat.Local?.CooldownFraction01 );
 
-		return System.HashCode.Combine( h1, h2 );
+		return System.HashCode.Combine( h1, h2, ShowHud );
 	}
 }
 
@@ -249,6 +253,12 @@
 		position: absolute;
 		font-family: Poppins;
 		pointer-events: none;
+		opacity: 1;
+		transition: opacity 0.3s;
+	}
+
+	.hud-root.menu-hidden {
+		opacity: 0;
 	}
 
 	.vignette {
