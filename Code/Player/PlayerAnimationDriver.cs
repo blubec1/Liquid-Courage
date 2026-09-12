@@ -216,7 +216,9 @@ public class PlayerAnimationDriver : Component
 		_swingDuration = def.AnimationDuration > 0f ? def.AnimationDuration : System.MathF.Max( 0.1f, def.Recovery + 0.1f );
 		_swingStrength = def.ImpactStrength;
 
-		_usingClipVisual = TryPlaySequenceBlended( def.Animation, _swingDuration );
+		_usingClipVisual = def.DisableBlending
+			? TryPlaySequenceFull( def.Animation, _swingDuration )
+			: TryPlaySequenceBlended( def.Animation, _swingDuration );
 	}
 
 	public void PlayFinisher( FinisherDefinition def )
@@ -225,7 +227,9 @@ public class PlayerAnimationDriver : Component
 		_swingDuration = def.AnimationDuration > 0f ? def.AnimationDuration : System.MathF.Max( 0.2f, def.StaggerTime * 0.6f + 0.2f );
 		_swingStrength = 1.2f;
 
-		_usingClipVisual = TryPlaySequenceBlended( def.Animation, _swingDuration );
+		_usingClipVisual = def.DisableBlending
+			? TryPlaySequenceFull( def.Animation, _swingDuration )
+			: TryPlaySequenceBlended( def.Animation, _swingDuration );
 	}
 
 	/// <summary>Called by DrinkMeter the instant a glass is triggered - plays the "chug" beat.
@@ -312,6 +316,31 @@ public class PlayerAnimationDriver : Component
 	/// fade-in/fade-out blend weight (see PLAN_AnimationBlending.md's blend curve), and overrides
 	/// each upper-body bone on the real body renderer with a lerp between its current animgraph
 	/// pose and the sampled attack pose. Cleans up via ClearPhysicsBones() once the attack ends.
+	///
+	/// Coordinate-space pipeline (critical — several bugs were caused by getting this wrong):
+	///
+	///   1. TryGetBoneTransformAnimation → world-space, animation-only (before physics/procedural
+	///      and before SetBoneOverride). Must NOT use TryGetBoneTransformLocal here — that returns
+	///      the FINAL bone state including previous overrides, creating a feedback loop where the
+	///      blend compounds each frame.
+	///
+	///   2. GetBoneWorldTransform on the sample model → world-space. The sample model is synced to
+	///      the body renderer's world position each frame so these are directly comparable.
+	///      The sample model also needs Update(0f) after setting CurrentSequence.Time or
+	///      GetBoneWorldTransform returns stale bind-pose data.
+	///
+	///   3. Lerp in world-space (both values are now comparable).
+	///
+	///   4. SetBoneOverride (via SetBoneTransform) expects MODEL-LOCAL coordinates — i.e. the
+	///      bone's position relative to the SceneModel's own world transform. We convert from
+	///      world-space via modelWorldTx.ToLocal(blendedWorld). Do NOT use SetBoneWorldTransform
+	///      here — it's a one-shot override that the animgraph immediately overwrites next frame.
+	///      SetBoneOverride persists until ClearBoneOverrides/ClearPhysicsBones.
+	///
+	///   5. The sample model is hidden via RenderingEnabled = false (not by position) while its
+	///      position is synced for the blend. RenderingEnabled = false does NOT suppress bone
+	///      updates — it only controls mesh visibility. The model is moved back to (0,0,-10000)
+	///      when the blend ends.
 	/// </summary>
 	void DriveAttackBoneOverrides()
 	{
@@ -329,6 +358,9 @@ public class PlayerAnimationDriver : Component
 			_attackSequenceActive = false;
 			_currentBlendWeight = 0f;
 
+			// Move the sample model back offscreen now that blending is done.
+			_sampleModel.Transform = new Transform( new Vector3( 0, 0, -10000 ) );
+
 			try { _bodyRenderer.ClearPhysicsBones(); } catch { }
 			return;
 		}
@@ -341,51 +373,51 @@ public class PlayerAnimationDriver : Component
 			_sequenceTime += Time.Delta;
 			_sampleModel.CurrentSequence.Time = _sequenceTime;
 
+			// Flush the new sequence time into the sample model's bone state so
+			// GetBoneWorldTransform returns the current pose, not stale bind data.
+			_sampleModel.Update( 0f );
+
 			var fadeIn = BlendInDuration > 0f ? System.Math.Clamp( _sequenceTime / BlendInDuration, 0f, 1f ) : 1f;
 			var remaining = _attackSequenceRevertTime - Time.Now;
 			var fadeOut = BlendOutDuration > 0f ? System.Math.Clamp( remaining / BlendOutDuration, 0f, 1f ) : 1f;
 			_currentBlendWeight = System.MathF.Min( fadeIn, fadeOut );
 
-			// The hidden sample model never moves from its parked, off-map spot (see
-			// SetupBoneBlending) - reassigning its Transform every frame and reading bone world
-			// transforms back in the SAME frame turned out to still be unreliable (likely a bone-
-			// matrix update ordering issue: the engine may only refresh a SceneModel's cached bone
-			// world transforms during its own render/animation pass, not the instant C# sets
-			// .Transform, so GetBoneWorldTransform() could still read last frame's - or the
-			// original -10000 - position). Instead of depending on where the sample model's root
-			// actually is this frame, express each sampled bone as an OFFSET from that root
-			// (ToLocal), then reapply that offset onto the real body's current root (ToWorld). That
-			// round-trip is correct regardless of the sample model's absolute position, so it can't
-			// drag the real bones off into the void again.
-			var sampleRoot = _sampleModel.Transform;
-			var realRoot = _bodyRenderer.WorldTransform;
+			// Hide the sample model so it doesn't render — it's only here for bone data.
+			_sampleModel.RenderingEnabled = false;
+			_sampleModel.Transform = _bodyRenderer.SceneModel.Transform;
+
+			var modelWorldTx = _bodyRenderer.SceneModel.Transform;
 
 			foreach ( var bone in _overrideBones )
 			{
-				if ( !_bodyRenderer.TryGetBoneTransformAnimation( bone, out var animTx ) )
+				// TryGetBoneTransformAnimation returns the pure animation output (before physics/procedural
+				// and before any SetBoneOverride effects), avoiding a feedback loop where previously-set
+				// overrides contaminate the next frame's read.
+				if ( !_bodyRenderer.TryGetBoneTransformAnimation( bone, out var animWorldTx ) )
 				{
 					missCount++;
 					continue;
 				}
 
+				// Both are world-space at the same world position (sample model synced above).
 				var attackWorldTx = _sampleModel.GetBoneWorldTransform( bone.Index );
-				var attackLocalTx = sampleRoot.ToLocal( attackWorldTx );
-				var attackTx = realRoot.ToWorld( attackLocalTx );
+				var blendedWorld = animWorldTx.LerpTo( attackWorldTx, _currentBlendWeight );
 
-				// Fully-qualified via the global namespace alias: bare "Transform" here would
-				// resolve to Component.Transform (this component's own GameTransform property),
-				// not the real Transform struct type - that's what caused CS1061 "GameTransform
-				// does not contain Lerp". "Sandbox.Transform" is NOT the fix, despite looking like
-				// the obvious disambiguation - Transform lives in the global namespace, not nested
-				// under Sandbox, so that qualification throws CS0234 ("Transform does not exist in
-				// the namespace Sandbox"). global::Transform is the correct, verified-compiling form.
-				var blended = global::Transform.Lerp( animTx, attackTx, _currentBlendWeight, true );
-				_bodyRenderer.SetBoneTransform( bone, blended );
+				// SetBoneOverride (called by SetBoneTransform) expects model-local coordinates.
+				// Convert the world-space blend result via the SceneModel's world transform.
+				var blendedLocal = modelWorldTx.ToLocal( blendedWorld );
+				_bodyRenderer.SetBoneTransform( bone, blendedLocal );
 				hitCount++;
 			}
 
 			if ( isFirstFrame )
-				Log.Info( $"[AnimBlend] First blend frame: {hitCount} bones overridden, {missCount} missed (TryGetBoneTransformAnimation returned false), weight={_currentBlendWeight:0.00}, sampleSeqTime={_sampleModel.CurrentSequence.Time:0.000}." );
+			{
+				// Dump a few raw transforms so we can verify the values are sane at runtime.
+				_bodyRenderer.TryGetBoneTransformAnimation( _overrideBones[0], out var diagAnim );
+				var diagAttack = _sampleModel.GetBoneWorldTransform( _overrideBones[0].Index );
+				Log.Info( $"[AnimBlend] First blend frame: {hitCount} bones overridden, {missCount} missed, weight={_currentBlendWeight:0.00}, sampleSeqTime={_sampleModel.CurrentSequence.Time:0.000}." );
+				Log.Info( $"[AnimBlend]   bone[0]='{_overrideBones[0].Name}' animPos={diagAnim.Position:0.00} attackPos={diagAttack.Position:0.00}" );
+			}
 		}
 		catch ( System.Exception ex )
 		{
@@ -394,6 +426,7 @@ public class PlayerAnimationDriver : Component
 			Log.Warning( $"[AnimBlend] DriveAttackBoneOverrides threw, disabling blend for this attack: {ex.Message}" );
 			_attackSequenceActive = false;
 			_currentBlendWeight = 0f;
+			_sampleModel.Transform = new Transform( new Vector3( 0, 0, -10000 ) );
 			try { _bodyRenderer.ClearPhysicsBones(); } catch { }
 		}
 	}

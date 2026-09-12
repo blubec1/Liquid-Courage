@@ -11,7 +11,7 @@ public class AttackStringSystem : Component
 {
 	public static AttackStringSystem Local { get; private set; }
 
-	[Property, Group( "Tuning" )] public float MaxGapBetweenAttacks { get; set; } = 0.9f;
+	[Property, Group( "Tuning" )] public float MaxGapBetweenAttacks { get; set; } = 1.5f;
 	[Property, Group( "Tuning" )] public float FinisherGlobalCooldown { get; set; } = 1.1f;
 
 	readonly List<AttackId> _history = new();
@@ -41,6 +41,11 @@ public class AttackStringSystem : Component
 		var maxLen = FinisherLibrary.All.Count == 0 ? 1 : FinisherLibrary.All.Max( f => f.Sequence.Length );
 		if ( _history.Count > maxLen )
 			_history.RemoveRange( 0, _history.Count - maxLen );
+
+		for(int i = 0; i < _history.Count; i++ )
+		{
+			Log.Info( $"[{i}] {_history[i]}" );
+		}
 
 		if ( now - _lastFinisherTime < FinisherGlobalCooldown )
 			return null;

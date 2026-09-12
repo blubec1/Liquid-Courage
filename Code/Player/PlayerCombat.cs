@@ -16,6 +16,7 @@ public class PlayerCombat : Component
 	float _nextReadyTime;
 	float _lastCooldownDuration = 0.0001f;
 	AttackId? _lastPerformedAttack;
+	float _movementDisableEndTime;
 
 	/// <summary>0 = just used an attack, 1 = ready to attack again. Drives the HUD cooldown bar under the crosshair.</summary>
 	public float CooldownFraction01
@@ -30,6 +31,8 @@ public class PlayerCombat : Component
 	}
 
 	public bool IsReady => Time.Now >= _nextReadyTime;
+
+	public bool IsMovementFrozen => Time.Now < _movementDisableEndTime;
 
 	protected override void OnAwake()
 	{
@@ -100,9 +103,12 @@ public class PlayerCombat : Component
 		HitFeedback.PlayAttackImpact( def.ImpactStrength, hits.Count );
 		PlayerAnimationDriver.Local?.PlayAttackSwing( def );
 
-		// Combo, variety, and the score multiplier all now live or die purely on whether you're
-		// actually connecting - a whiff never extends the combo streak or the style/variety bonus,
-		// no matter how varied your attacks are (see ComboSystem/StyleSystem).
+		if ( def.DisableMovement )
+		{
+			var duration = def.AnimationDuration > 0f ? def.AnimationDuration : System.MathF.Max( 0.1f, def.Recovery + 0.1f );
+			_movementDisableEndTime = Time.Now + duration;
+		}
+
 		if ( hits.Count > 0 )
 		{
 			ComboSystem.Local?.RegisterHit( hits.Count );
@@ -129,6 +135,12 @@ public class PlayerCombat : Component
 
 		HitFeedback.PlayFinisherImpact( finisher.ImpactStrength, hits.Count );
 		PlayerAnimationDriver.Local?.PlayFinisher( finisher );
+
+		if ( finisher.DisableMovement )
+		{
+			var duration = finisher.AnimationDuration > 0f ? finisher.AnimationDuration : System.MathF.Max( 0.2f, finisher.StaggerTime * 0.6f + 0.2f );
+			_movementDisableEndTime = Time.Now + duration;
+		}
 
 		if ( hits.Count > 0 )
 		{
