@@ -99,6 +99,10 @@ public static class FinisherLibrary
 		new()
 		{
 			Id = FinisherId.OpeningSlam,
+			Animation = "Grab_And_Slam_2",
+			AnimationDuration = 1.5f,
+			DisableMovement = true,
+			DisableBlending = true,
 			Name = "Opening Slam",
 			Sequence = new[] { AttackId.Heavy, AttackId.Punch, AttackId.Kick },
 			Damage = 40,
