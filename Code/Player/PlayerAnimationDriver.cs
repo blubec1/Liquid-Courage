@@ -322,10 +322,14 @@ public class PlayerAnimationDriver : Component
 				}
 
 				var attackTx = _sampleModel.GetBoneWorldTransform( bone.Index );
-				// Fully-qualified: bare "Transform" here would resolve to Component.Transform
-				// (this component's own GameTransform property), not the Sandbox.Transform
-				// struct type - that's what caused CS1061 "GameTransform does not contain Lerp".
-				var blended = Sandbox.Transform.Lerp( animTx, attackTx, _currentBlendWeight );
+				// Fully-qualified via the global namespace alias: bare "Transform" here would
+				// resolve to Component.Transform (this component's own GameTransform property),
+				// not the real Transform struct type - that's what caused CS1061 "GameTransform
+				// does not contain Lerp". "Sandbox.Transform" is NOT the fix, despite looking like
+				// the obvious disambiguation - Transform lives in the global namespace, not nested
+				// under Sandbox, so that qualification throws CS0234 ("Transform does not exist in
+				// the namespace Sandbox"). global::Transform is the correct, verified-compiling form.
+				var blended = global::Transform.Lerp( animTx, attackTx, _currentBlendWeight, true );
 				_bodyRenderer.SetBoneTransform( bone, blended );
 				hitCount++;
 			}
