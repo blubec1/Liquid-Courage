@@ -264,6 +264,20 @@ public abstract class EnemyBase : Component
 			if ( BodyRenderer?.SceneModel is not null )
 				BodyRenderer.SceneModel.UseAnimGraph = false;
 
+			// Disable the kinematic gameplay collider (added by HordeSpawner for character-vs-
+			// character pushing) before handing off to ragdoll physics. Left enabled, it sits
+			// exactly where the new per-bone ragdoll shapes spawn - guaranteed full overlap - and
+			// the physics engine's own penetration-resolution shove was what actually launched
+			// ragdolls "all over the place", independent of and much stronger than our knockback
+			// velocity below. That knockback damping was correct; it just wasn't the cause.
+			try
+			{
+				var kinematicCollider = Components.Get<ModelCollider>();
+				if ( kinematicCollider is not null )
+					kinematicCollider.Enabled = false;
+			}
+			catch { }
+
 			// Hand the body over to real physics. Citizen-based models ship with ragdoll bones
 			// already set up, and this GameObject already carries the SkinnedModelRenderer, so
 			// ModelPhysics picks it up the same way every other sibling-component setup in this

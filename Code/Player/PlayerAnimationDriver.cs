@@ -158,7 +158,6 @@ public class PlayerAnimationDriver : Component
 	{
 		DriveLocomotion();
 		DriveDrinkSequenceRevert();
-		DriveAttackBoneOverrides();
 		DriveAttackVisual();
 		DriveDrinkVisual();
 		DriveHitFlash();
@@ -242,41 +241,19 @@ public class PlayerAnimationDriver : Component
 	}
 
 	/// <summary>
-	/// Attack path: leaves the main animgraph running (legs keep walking) and instead scrubs the
-	/// clip on a hidden secondary SceneModel, which DriveAttackBoneOverrides blends onto just the
-	/// upper-body bones every frame. See PLAN_AnimationBlending.md. Falls back to a full-body swap
-	/// if the bone-blend setup isn't available on this model.
+	/// Attack path. Used to blend a hidden secondary SceneModel's sampled pose onto just the
+	/// upper-body bones each frame while the animgraph kept driving the legs (see
+	/// PLAN_AnimationBlending.md) - but two separate fix attempts at the world/local bone-space
+	/// conversion (re-parenting the sample model's transform every frame, then a ToLocal/ToWorld
+	/// round-trip) both produced visible corruption of the upper body (invisible, then outright
+	/// wrecked geometry). Rather than attempt a third theory blind, this now always takes the same
+	/// reliable full-body sequence swap path the drink "chug" animation already uses successfully -
+	/// legs freeze for the attack's duration instead of continuing to walk, but the body renders
+	/// correctly. The bone-blend fields/methods below are kept but no longer invoked from here.
 	/// </summary>
 	bool TryPlaySequenceBlended( string sequenceName, float duration )
 	{
-		if ( string.IsNullOrEmpty( sequenceName ) )
-			return false;
-
-		if ( _sampleModel is null || _overrideBones is null )
-		{
-			Log.Info( $"[AnimBlend] '{sequenceName}': no sample model/bones, falling back to full-body swap." );
-			return TryPlaySequenceFull( sequenceName, duration );
-		}
-
-		try
-		{
-			_sampleModel.CurrentSequence.Name = sequenceName;
-			_sampleModel.CurrentSequence.Time = 0f;
-
-			_sequenceTime = 0f;
-			_currentBlendWeight = 0f;
-			_attackSequenceActive = true;
-			_attackSequenceRevertTime = Time.Now + duration;
-
-			Log.Info( $"[AnimBlend] Playing '{sequenceName}' (blended, {duration:0.00}s). CurrentSequence.Name now reads back as '{_sampleModel.CurrentSequence.Name}'." );
-			return true;
-		}
-		catch ( System.Exception ex )
-		{
-			Log.Warning( $"[AnimBlend] '{sequenceName}' blended playback threw: {ex.Message}" );
-			_attackSequenceActive = false;
-			return false;
-		}
+		return TryPlaySequenceFull( sequenceName, duration );
 	}
 
 	/// <summary>Old/simple approach: fully disables the animgraph on the main body and plays the
