@@ -16,6 +16,9 @@ public class PlayerFacing : Component
 		if ( DrinkMeter.Local?.IsDrinking == true )
 			return;
 
+		if ( PlayerCombat.Local?.IsMovementFrozen == true )
+			return;
+
 		var camera = IsoCameraRig.Instance?.Camera;
 		if ( camera is null )
 			return;

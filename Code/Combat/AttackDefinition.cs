@@ -55,6 +55,9 @@ public class AttackDefinition
 
 	/// <summary>When true, this attack uses full-body sequence swap instead of bone-level blending.</summary>
 	public bool DisableBlending;
+
+	/// <summary>When true, player movement and facing are frozen for the duration of this attack.</summary>
+	public bool DisableMovement;
 }
 
 public static class AttackLibrary
@@ -65,6 +68,7 @@ public static class AttackLibrary
 		{
 			Id = AttackId.Punch,
 			Animation = "Punching_1",
+			AnimationDuration = 0.3f,
 			Name = "Punch",
 			Damage = 7,
 			Cooldown = 0.26f,
@@ -79,8 +83,9 @@ public static class AttackLibrary
 		{
 			Id = AttackId.Kick,
 			DisableBlending = true,
+			DisableMovement = true,
 			Animation = "Roundhouse_Kick_2",
-			AnimationDuration = 0.8f,
+			AnimationDuration = 0.6f,
 			Name = "Kick",
 			Damage = 13,
 			Cooldown = 0.44f,

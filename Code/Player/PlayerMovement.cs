@@ -43,6 +43,12 @@ public class PlayerMovement : Component
 			return;
 		}
 
+		if ( PlayerCombat.Local?.IsMovementFrozen == true )
+		{
+			ApplyVelocity( Vector3.Zero );
+			return;
+		}
+
 		var forward = (Input.Down( "Forward" ) ? 1f : 0f) - (Input.Down( "Backward" ) ? 1f : 0f);
 		var side = (Input.Down( "Right" ) ? 1f : 0f) - (Input.Down( "Left" ) ? 1f : 0f);
 

@@ -40,6 +40,9 @@ public class FinisherDefinition
 
 	/// <summary>When true, this finisher uses full-body sequence swap instead of bone-level blending.</summary>
 	public bool DisableBlending;
+
+	/// <summary>When true, player movement and facing are frozen for the duration of this finisher.</summary>
+	public bool DisableMovement;
 }
 
 public static class FinisherLibrary
@@ -49,6 +52,8 @@ public static class FinisherLibrary
 		new()
 		{
 			Id = FinisherId.HaymakerCombo,
+			Animation = "Haymaker",
+			AnimationDuration = 1.3f,
 			Name = "Haymaker Combo",
 			Sequence = new[] { AttackId.Punch, AttackId.Punch, AttackId.Heavy },
 			Damage = 45,
