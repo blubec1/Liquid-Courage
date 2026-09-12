@@ -31,6 +31,21 @@ public static class HitFeedback
 		Sound.Play( "sounds/combat/finisher_impact.sound" );
 	}
 
+	/// <summary>The player's own "ouch" feedback - shake plus a hurt sound, scaled by how big a
+	/// chunk of max HP the hit took (0-1). Kept separate from PlayAttackImpact/PlayFinisherImpact
+	/// since this is feedback for damage taken, not damage dealt.</summary>
+	public static void PlayPlayerHurt( float severity01 )
+	{
+		var shakeAmount = 4f + severity01 * 16f;
+		var shakeDuration = 0.1f + severity01 * 0.16f;
+		GameEvents.RaiseShakeRequested( shakeAmount, shakeDuration );
+
+		if ( severity01 >= 0.12f )
+			Sound.Play( "sounds/combat/heavy_impact.sound" );
+		else
+			Sound.Play( "sounds/combat/light_impact.sound" );
+	}
+
 	static void PlayImpactSound( float impactStrength )
 	{
 		if ( impactStrength >= 0.75f )

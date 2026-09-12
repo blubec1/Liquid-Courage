@@ -1,0 +1,542 @@
+@using Sandbox;
+@using Sandbox.UI;
+@using DrunkenBarFight;
+@inherits PanelComponent
+@namespace DrunkenBarFight
+
+<root>
+	<div class="menu-root @(Visible ? "visible" : "")">
+
+		<div class="glow glow-a"></div>
+		<div class="glow glow-b"></div>
+
+		<div class="motes">
+			@for ( int i = 0; i < MoteCount; i++ )
+			{
+				<div class="mote mote-@i"></div>
+			}
+		</div>
+
+		<div class="panel">
+
+			<div class="accent-bar"></div>
+			<div class="corner corner-tl"></div>
+			<div class="corner corner-tr"></div>
+			<div class="corner corner-bl"></div>
+			<div class="corner corner-br"></div>
+
+			<div class="title-wrap">
+				<div class="title-line1">DRUNKEN</div>
+				<div class="title-line2">BAR FIGHT</div>
+			</div>
+
+			@if ( _screen == MenuScreen.Root )
+			{
+				<div class="nav">
+					<div class="nav-button primary" onclick="@PlayClicked">PLAY</div>
+					<div class="nav-button" onclick="@GoToHowToPlay">HOW TO PLAY</div>
+					<div class="nav-button" onclick="@GoToSettings">SETTINGS</div>
+				</div>
+			}
+
+			@if ( _screen == MenuScreen.HowToPlay )
+			{
+				<div class="sub-title">HOW TO PLAY</div>
+
+				<div class="controls">
+					<div class="control-row"><div class="key">WASD</div><div class="desc">Move</div></div>
+					<div class="control-row"><div class="key">Mouse</div><div class="desc">Aim</div></div>
+					<div class="control-row"><div class="key">LMB</div><div class="desc">Punch</div></div>
+					<div class="control-row"><div class="key">RMB</div><div class="desc">Heavy Attack</div></div>
+					<div class="control-row"><div class="key">E</div><div class="desc">Leg Sweep (90&deg; arc)</div></div>
+					<div class="control-row"><div class="key">G</div><div class="desc">Throw Bottle</div></div>
+					<div class="control-row"><div class="key">Esc</div><div class="desc">Pause</div></div>
+				</div>
+
+				<div class="tip">Land hits to build your combo. Beat enemies to fill the drink meter -
+					each glass makes you hit harder and take less damage, but past 130 the room starts to
+					blur. 150 and you black out.</div>
+
+				<div class="nav-button back" onclick="@GoToRoot">BACK</div>
+			}
+
+			@if ( _screen == MenuScreen.Settings )
+			{
+				<div class="sub-title">SETTINGS</div>
+
+				<div class="setting-row">
+					<div class="setting-label">Master Volume</div>
+					<div class="setting-control">
+						<div class="stepper-button" onclick="@VolumeDown">-</div>
+						<div class="setting-bar-bg"><div class="setting-bar-fill" style="width:@((Settings.MasterVolume * 100).ToString( "0.##" ))%;"></div></div>
+						<div class="stepper-button" onclick="@VolumeUp">+</div>
+					</div>
+				</div>
+
+				<div class="setting-row">
+					<div class="setting-label">Resolution</div>
+					<div class="setting-control">
+						<div class="choice-button" onclick="@CycleResolution">@ResolutionLabel</div>
+					</div>
+				</div>
+
+				<div class="setting-row">
+					<div class="setting-label">Fullscreen</div>
+					<div class="setting-control">
+						<div class="choice-button @(Settings.Fullscreen ? "on" : "off")" onclick="@ToggleFullscreen">@(Settings.Fullscreen ? "ON" : "OFF")</div>
+					</div>
+				</div>
+
+				<div class="settings-note">Resolution/fullscreen are saved as a preference here but
+					aren't applied automatically - change those in s&box's own video settings.</div>
+
+				<div class="nav-button back" onclick="@GoToRoot">BACK</div>
+			}
+
+		</div>
+
+		<div class="footer">last call comes for everyone</div>
+
+	</div>
+</root>
+
+@code
+{
+	enum MenuScreen { Root, HowToPlay, Settings }
+
+	MenuScreen _screen = MenuScreen.Root;
+
+	public bool Visible => GameManager.Instance?.State == RunState.MainMenu;
+
+	public int MoteCount => 14;
+
+	GameSettings Settings => GameSettings.Instance;
+
+	public string ResolutionLabel => Settings.ResolutionLabel( Settings.ResolutionIndex );
+
+	void PlayClicked()
+	{
+		_screen = MenuScreen.Root;
+		GameManager.Instance?.StartGame();
+	}
+
+	void GoToHowToPlay() => _screen = MenuScreen.HowToPlay;
+	void GoToSettings() => _screen = MenuScreen.Settings;
+	void GoToRoot() => _screen = MenuScreen.Root;
+
+	void VolumeDown() => Settings.SetMasterVolume( Settings.MasterVolume - 0.1f );
+	void VolumeUp() => Settings.SetMasterVolume( Settings.MasterVolume + 0.1f );
+
+	void CycleResolution()
+	{
+		Settings.CycleResolution();
+	}
+
+	void ToggleFullscreen()
+	{
+		Settings.SetFullscreen( !Settings.Fullscreen );
+	}
+
+	protected override int BuildHash() => System.HashCode.Combine(
+		Visible, _screen, Settings.MasterVolume, Settings.ResolutionIndex, Settings.Fullscreen );
+}
+
+<style>
+	.menu-root {
+		width: 100%;
+		height: 100%;
+		position: absolute;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background-color: rgba(8,6,9,0.0);
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.5s ease;
+		font-family: Poppins;
+		overflow: hidden;
+	}
+
+	.menu-root.visible {
+		opacity: 1;
+		pointer-events: all;
+		background: radial-gradient(ellipse at center, rgba(30,14,16,0.55) 0%, rgba(6,4,7,0.94) 100%);
+	}
+
+	.glow {
+		position: absolute;
+		width: 900px;
+		height: 900px;
+		border-radius: 900px;
+		pointer-events: none;
+	}
+
+	.glow-a {
+		left: -250px;
+		top: -300px;
+		background: radial-gradient(ellipse at center, rgba(224,48,58,0.20) 0%, transparent 70%);
+		animation: glow-pulse-a 7s ease-in-out infinite;
+	}
+
+	.glow-b {
+		right: -300px;
+		bottom: -350px;
+		background: radial-gradient(ellipse at center, rgba(255,180,60,0.14) 0%, transparent 70%);
+		animation: glow-pulse-b 9s ease-in-out infinite;
+	}
+
+	@@keyframes glow-pulse-a {
+		0% { opacity: 0.6; }
+		50% { opacity: 1; }
+		100% { opacity: 0.6; }
+	}
+
+	@@keyframes glow-pulse-b {
+		0% { opacity: 0.5; }
+		50% { opacity: 0.9; }
+		100% { opacity: 0.5; }
+	}
+
+	.motes {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
+
+	.mote {
+		position: absolute;
+		width: 4px;
+		height: 4px;
+		border-radius: 4px;
+		background-color: rgba(255,200,120,0.55);
+		bottom: -20px;
+		animation-name: mote-rise;
+		animation-timing-function: linear;
+		animation-iteration-count: infinite;
+	}
+
+	.mote-0 { left: 4%; animation-duration: 11s; animation-delay: 0s; }
+	.mote-1 { left: 11%; animation-duration: 14s; animation-delay: 1.2s; }
+	.mote-2 { left: 18%; animation-duration: 9s; animation-delay: 2.4s; }
+	.mote-3 { left: 26%; animation-duration: 13s; animation-delay: 0.6s; }
+	.mote-4 { left: 34%; animation-duration: 10s; animation-delay: 3.1s; }
+	.mote-5 { left: 42%; animation-duration: 15s; animation-delay: 1.8s; }
+	.mote-6 { left: 50%; animation-duration: 8s; animation-delay: 2.9s; }
+	.mote-7 { left: 58%; animation-duration: 12s; animation-delay: 0.3s; }
+	.mote-8 { left: 66%; animation-duration: 11s; animation-delay: 3.6s; }
+	.mote-9 { left: 74%; animation-duration: 9.5s; animation-delay: 1.5s; }
+	.mote-10 { left: 82%; animation-duration: 13.5s; animation-delay: 2.1s; }
+	.mote-11 { left: 89%; animation-duration: 10.5s; animation-delay: 0.9s; }
+	.mote-12 { left: 95%; animation-duration: 14.5s; animation-delay: 3.3s; }
+	.mote-13 { left: 71%; animation-duration: 12.5s; animation-delay: 4.1s; }
+
+	@@keyframes mote-rise {
+		0% { transform: translateY(0px); opacity: 0; }
+		10% { opacity: 0.8; }
+		90% { opacity: 0.5; }
+		100% { transform: translateY(-620px); opacity: 0; }
+	}
+
+	.panel {
+		position: relative;
+		width: 480px;
+		background-color: rgba(16,12,16,0.96);
+		border: 1px solid rgba(255,255,255,0.12);
+		border-radius: 10px;
+		padding: 38px 40px 34px 40px;
+		text-align: center;
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		animation: panel-in 0.5s ease, panel-glow 4s ease-in-out 0.5s infinite;
+	}
+
+	@@keyframes panel-in {
+		0% { opacity: 0; transform: scale(0.92) translateY(14px); }
+		100% { opacity: 1; transform: scale(1) translateY(0px); }
+	}
+
+	@@keyframes panel-glow {
+		0% { box-shadow: 0 0 18px rgba(224,48,58,0.10), 0 10px 40px rgba(0,0,0,0.5); }
+		50% { box-shadow: 0 0 34px rgba(224,48,58,0.28), 0 10px 40px rgba(0,0,0,0.5); }
+		100% { box-shadow: 0 0 18px rgba(224,48,58,0.10), 0 10px 40px rgba(0,0,0,0.5); }
+	}
+
+	.accent-bar {
+		position: absolute;
+		top: 0px;
+		left: 50%;
+		width: 120px;
+		height: 3px;
+		margin-left: -60px;
+		background: linear-gradient(to right, rgba(224,48,58,0.0) 0%, rgba(224,48,58,0.9) 50%, rgba(224,48,58,0.0) 100%);
+	}
+
+	.corner {
+		position: absolute;
+		width: 18px;
+		height: 18px;
+		border-top: 2px rgba(224,48,58,0.7);
+		border-left: 2px rgba(224,48,58,0.7);
+	}
+
+	.corner-tl { top: 10px; left: 10px; }
+
+	.corner-tr {
+		top: 10px;
+		right: 10px;
+		border-top: 2px rgba(224,48,58,0.7);
+		border-left: 0;
+		border-right: 2px rgba(224,48,58,0.7);
+	}
+
+	.corner-bl {
+		bottom: 10px;
+		left: 10px;
+		border-top: 0;
+		border-bottom: 2px rgba(224,48,58,0.7);
+		border-left: 2px rgba(224,48,58,0.7);
+	}
+
+	.corner-br {
+		bottom: 10px;
+		right: 10px;
+		border-top: 0;
+		border-left: 0;
+		border-bottom: 2px rgba(224,48,58,0.7);
+		border-right: 2px rgba(224,48,58,0.7);
+	}
+
+	.title-wrap {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		margin-bottom: 28px;
+		padding: 8px 0 4px 0;
+	}
+
+	.title-line1, .title-line2 {
+		font-weight: 900;
+		white-space: nowrap;
+		text-align: center;
+		width: 100%;
+	}
+
+	.title-line1 {
+		color: white;
+		font-size: 26px;
+		letter-spacing: 10px;
+		margin-bottom: 4px;
+		animation: neon-flicker 3.4s ease-in-out infinite;
+	}
+
+	.title-line2 {
+		color: white;
+		font-size: 46px;
+		letter-spacing: 5px;
+		animation: neon-flicker 3.4s ease-in-out infinite;
+	}
+
+	@@keyframes neon-flicker {
+		0%   { text-shadow: 0 2px 10px black, 0 0 10px rgba(224,48,58,0.9), 0 0 26px rgba(224,48,58,0.6), 0 0 46px rgba(224,48,58,0.35); }
+		42%  { text-shadow: 0 2px 10px black, 0 0 10px rgba(224,48,58,0.9), 0 0 26px rgba(224,48,58,0.6), 0 0 46px rgba(224,48,58,0.35); }
+		44%  { text-shadow: 0 2px 6px black, 0 0 4px rgba(224,48,58,0.4); }
+		46%  { text-shadow: 0 2px 10px black, 0 0 10px rgba(224,48,58,0.9), 0 0 26px rgba(224,48,58,0.6), 0 0 46px rgba(224,48,58,0.35); }
+		87%  { text-shadow: 0 2px 10px black, 0 0 10px rgba(224,48,58,0.9), 0 0 26px rgba(224,48,58,0.6), 0 0 46px rgba(224,48,58,0.35); }
+		89%  { text-shadow: 0 2px 6px black, 0 0 4px rgba(224,48,58,0.4); }
+		91%  { text-shadow: 0 2px 10px black, 0 0 10px rgba(224,48,58,0.9), 0 0 26px rgba(224,48,58,0.6), 0 0 46px rgba(224,48,58,0.35); }
+		100% { text-shadow: 0 2px 10px black, 0 0 10px rgba(224,48,58,0.9), 0 0 26px rgba(224,48,58,0.6), 0 0 46px rgba(224,48,58,0.35); }
+	}
+
+	.nav {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.nav-button {
+		background-color: rgba(255,255,255,0.06);
+		color: rgba(255,255,255,0.85);
+		font-weight: 800;
+		font-size: 15px;
+		letter-spacing: 2px;
+		padding: 14px 0;
+		border-radius: 6px;
+		cursor: pointer;
+		margin-bottom: 10px;
+		transition: background-color 0.15s ease, transform 0.15s ease;
+	}
+
+	.nav-button:hover {
+		background-color: rgba(255,255,255,0.14);
+		transform: scale(1.02);
+	}
+
+	.nav-button.primary {
+		background-color: #e0303a;
+		color: white;
+		font-size: 18px;
+		padding: 16px 0;
+		animation: button-pulse 2.2s ease-in-out infinite;
+	}
+
+	.nav-button.primary:hover {
+		background-color: #ff4550;
+	}
+
+	.nav-button.back {
+		margin-top: 6px;
+		margin-bottom: 0;
+	}
+
+	@@keyframes button-pulse {
+		0% { box-shadow: 0 0 0px rgba(224,48,58,0.0); }
+		50% { box-shadow: 0 0 22px rgba(224,48,58,0.55); }
+		100% { box-shadow: 0 0 0px rgba(224,48,58,0.0); }
+	}
+
+	.sub-title {
+		color: rgba(255,255,255,0.45);
+		font-size: 12px;
+		font-weight: 800;
+		letter-spacing: 3px;
+		margin-bottom: 14px;
+	}
+
+	.controls {
+		background-color: rgba(255,255,255,0.05);
+		border-radius: 8px;
+		padding: 14px 18px;
+		margin-bottom: 16px;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.control-row {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		padding: 4px 0;
+	}
+
+	.control-row .key {
+		color: #1a1616;
+		background-color: #ffd257;
+		font-size: 12px;
+		font-weight: 800;
+		padding: 3px 10px;
+		border-radius: 5px;
+		letter-spacing: 1px;
+	}
+
+	.control-row .desc {
+		color: rgba(255,255,255,0.78);
+		font-size: 13px;
+	}
+
+	.tip {
+		color: rgba(255,255,255,0.5);
+		font-size: 12px;
+		line-height: 1.5;
+		margin-bottom: 16px;
+	}
+
+	.setting-row {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		background-color: rgba(255,255,255,0.05);
+		border-radius: 8px;
+		padding: 12px 16px;
+		margin-bottom: 10px;
+	}
+
+	.setting-label {
+		color: rgba(255,255,255,0.8);
+		font-size: 13px;
+		font-weight: 700;
+	}
+
+	.setting-control {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+	}
+
+	.stepper-button {
+		width: 26px;
+		height: 26px;
+		background-color: rgba(255,255,255,0.12);
+		color: white;
+		font-weight: 800;
+		border-radius: 5px;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.stepper-button:hover {
+		background-color: rgba(255,255,255,0.22);
+	}
+
+	.setting-bar-bg {
+		width: 110px;
+		height: 8px;
+		background-color: rgba(0,0,0,0.4);
+		border-radius: 4px;
+		margin: 0 10px;
+		overflow: hidden;
+	}
+
+	.setting-bar-fill {
+		height: 100%;
+		background-color: #ffd257;
+		border-radius: 4px;
+	}
+
+	.choice-button {
+		background-color: rgba(255,255,255,0.12);
+		color: white;
+		font-weight: 800;
+		font-size: 12px;
+		letter-spacing: 1px;
+		padding: 6px 16px;
+		border-radius: 5px;
+		cursor: pointer;
+	}
+
+	.choice-button:hover {
+		background-color: rgba(255,255,255,0.22);
+	}
+
+	.choice-button.on {
+		background-color: #2f8a4a;
+	}
+
+	.choice-button.off {
+		background-color: rgba(255,255,255,0.12);
+	}
+
+	.settings-note {
+		color: rgba(255,255,255,0.35);
+		font-size: 11px;
+		font-style: italic;
+		line-height: 1.4;
+		margin-bottom: 14px;
+	}
+
+	.footer {
+		position: absolute;
+		bottom: 18px;
+		right: 24px;
+		color: rgba(255,255,255,0.25);
+		font-size: 11px;
+		font-style: italic;
+		letter-spacing: 1px;
+	}
+</style>

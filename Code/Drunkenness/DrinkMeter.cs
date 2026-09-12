@@ -17,6 +17,7 @@ public class DrinkMeter : Component
 	[Property, Group( "Tuning" )] public float ProgressPerKill { get; set; } = 22f;
 	[Property, Group( "Tuning" )] public float ProgressPerToughKillBonus { get; set; } = 15f;
 	[Property, Group( "Tuning" )] public float FreezeDuration { get; set; } = 0.9f;
+	[Property, Group( "Tuning" )] public float HealPerDrink { get; set; } = 30f;
 
 	[Property, Group( "Animation" )] public string DrinkAnimation { get; set; } = "";
 	[Property, Group( "Animation" )] public float DrinkAnimationDuration { get; set; } = 0.9f;
@@ -79,6 +80,8 @@ public class DrinkMeter : Component
 		PlayerAnimationDriver.Local?.PlayDrink( DrinkAnimation, duration );
 
 		DrunkennessSystem.Local?.DrinkGlass();
+		PlayerStats.Local?.Heal( HealPerDrink );
+		Vfx.DrinkCelebration( WorldPosition );
 	}
 
 	public void ResetRun()

@@ -37,6 +37,12 @@ public static class GameEvents
 	public static event Action PlayerDied;
 	public static void RaisePlayerDied() => PlayerDied?.Invoke();
 
+	/// <summary>Fired every time the player actually takes damage (post-mitigation, post-immunity-
+	/// window). Args = the HP actually lost, and that amount as a 0-1 fraction of max HP - HUD/VFX
+	/// use the fraction to scale how dramatic the feedback reads for a graze vs. a heavy hit.</summary>
+	public static event Action<float, float> PlayerDamaged;
+	public static void RaisePlayerDamaged( float amount, float fraction01 ) => PlayerDamaged?.Invoke( amount, fraction01 );
+
 	/// <summary>Fired whenever an enemy dies. Passes whether it was a sobering enemy, a finisher kill, and an environmental kill.</summary>
 	public static event Action<EnemyKillInfo> EnemyKilled;
 	public static void RaiseEnemyKilled( EnemyKillInfo info ) => EnemyKilled?.Invoke( info );

@@ -10,7 +10,7 @@ public class EnemyBruiser : EnemyBase
 	{
 		MaxHP = 95f;
 		MoveSpeed = 95f;
-		Damage = 22f;
+		Damage = 16f;
 		AttackRange = 78f;
 		AttackCooldown = 2.2f;
 		AttackWindup = 0.55f;

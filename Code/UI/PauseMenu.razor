@@ -1,0 +1,379 @@
+@using Sandbox;
+@using Sandbox.UI;
+@using DrunkenBarFight;
+@inherits PanelComponent
+@namespace DrunkenBarFight
+
+<root>
+	<div class="pause-root @(Visible ? "visible" : "")">
+
+		<div class="panel">
+
+			<div class="corner corner-tl"></div>
+			<div class="corner corner-tr"></div>
+			<div class="corner corner-bl"></div>
+			<div class="corner corner-br"></div>
+
+			<div class="title">PAUSED</div>
+
+			@if ( _screen == MenuScreen.Root )
+			{
+				<div class="nav">
+					<div class="nav-button primary" onclick="@ResumeClicked">RESUME</div>
+					<div class="nav-button" onclick="@GoToHowToPlay">HOW TO PLAY</div>
+					<div class="nav-button" onclick="@GoToSettings">SETTINGS</div>
+					<div class="nav-button quit" onclick="@QuitClicked">QUIT TO MENU</div>
+				</div>
+			}
+
+			@if ( _screen == MenuScreen.HowToPlay )
+			{
+				<div class="sub-title">HOW TO PLAY</div>
+
+				<div class="controls">
+					<div class="control-row"><div class="key">WASD</div><div class="desc">Move</div></div>
+					<div class="control-row"><div class="key">Mouse</div><div class="desc">Aim</div></div>
+					<div class="control-row"><div class="key">LMB</div><div class="desc">Punch</div></div>
+					<div class="control-row"><div class="key">RMB</div><div class="desc">Heavy Attack</div></div>
+					<div class="control-row"><div class="key">E</div><div class="desc">Leg Sweep (90&deg; arc)</div></div>
+					<div class="control-row"><div class="key">G</div><div class="desc">Throw Bottle</div></div>
+					<div class="control-row"><div class="key">Esc</div><div class="desc">Pause</div></div>
+				</div>
+
+				<div class="nav-button back" onclick="@GoToRoot">BACK</div>
+			}
+
+			@if ( _screen == MenuScreen.Settings )
+			{
+				<div class="sub-title">SETTINGS</div>
+
+				<div class="setting-row">
+					<div class="setting-label">Master Volume</div>
+					<div class="setting-control">
+						<div class="stepper-button" onclick="@VolumeDown">-</div>
+						<div class="setting-bar-bg"><div class="setting-bar-fill" style="width:@((Settings.MasterVolume * 100).ToString( "0.##" ))%;"></div></div>
+						<div class="stepper-button" onclick="@VolumeUp">+</div>
+					</div>
+				</div>
+
+				<div class="setting-row">
+					<div class="setting-label">Resolution</div>
+					<div class="setting-control">
+						<div class="choice-button" onclick="@CycleResolution">@ResolutionLabel</div>
+					</div>
+				</div>
+
+				<div class="setting-row">
+					<div class="setting-label">Fullscreen</div>
+					<div class="setting-control">
+						<div class="choice-button @(Settings.Fullscreen ? "on" : "off")" onclick="@ToggleFullscreen">@(Settings.Fullscreen ? "ON" : "OFF")</div>
+					</div>
+				</div>
+
+				<div class="settings-note">Resolution/fullscreen are saved as a preference here but
+					aren't applied automatically - change those in s&box's own video settings.</div>
+
+				<div class="nav-button back" onclick="@GoToRoot">BACK</div>
+			}
+
+		</div>
+
+	</div>
+</root>
+
+@code
+{
+	enum MenuScreen { Root, HowToPlay, Settings }
+
+	MenuScreen _screen = MenuScreen.Root;
+
+	public bool Visible => GameManager.Instance?.State == RunState.Paused;
+
+	GameSettings Settings => GameSettings.Instance;
+
+	public string ResolutionLabel => Settings.ResolutionLabel( Settings.ResolutionIndex );
+
+	void ResumeClicked()
+	{
+		_screen = MenuScreen.Root;
+		GameManager.Instance?.TogglePause();
+	}
+
+	void QuitClicked()
+	{
+		_screen = MenuScreen.Root;
+		GameManager.Instance?.QuitToMenu();
+	}
+
+	void GoToHowToPlay() => _screen = MenuScreen.HowToPlay;
+	void GoToSettings() => _screen = MenuScreen.Settings;
+	void GoToRoot() => _screen = MenuScreen.Root;
+
+	void VolumeDown() => Settings.SetMasterVolume( Settings.MasterVolume - 0.1f );
+	void VolumeUp() => Settings.SetMasterVolume( Settings.MasterVolume + 0.1f );
+
+	void CycleResolution() => Settings.CycleResolution();
+	void ToggleFullscreen() => Settings.SetFullscreen( !Settings.Fullscreen );
+
+	protected override int BuildHash() => System.HashCode.Combine(
+		Visible, _screen, Settings.MasterVolume, Settings.ResolutionIndex, Settings.Fullscreen );
+}
+
+<style>
+	.pause-root {
+		width: 100%;
+		height: 100%;
+		position: absolute;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background-color: rgba(0,0,0,0.0);
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.25s ease;
+		font-family: Poppins;
+	}
+
+	.pause-root.visible {
+		opacity: 1;
+		pointer-events: all;
+		background-color: rgba(6,4,7,0.75);
+	}
+
+	.panel {
+		position: relative;
+		width: 400px;
+		background-color: rgba(16,12,16,0.96);
+		border: 1px solid rgba(255,255,255,0.12);
+		border-radius: 10px;
+		padding: 34px 36px;
+		text-align: center;
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+	}
+
+	.corner {
+		position: absolute;
+		width: 16px;
+		height: 16px;
+		border-top: 2px rgba(224,48,58,0.6);
+		border-left: 2px rgba(224,48,58,0.6);
+	}
+
+	.corner-tl { top: 8px; left: 8px; }
+
+	.corner-tr {
+		top: 8px;
+		right: 8px;
+		border-top: 2px rgba(224,48,58,0.6);
+		border-left: 0;
+		border-right: 2px rgba(224,48,58,0.6);
+	}
+
+	.corner-bl {
+		bottom: 8px;
+		left: 8px;
+		border-top: 0;
+		border-bottom: 2px rgba(224,48,58,0.6);
+		border-left: 2px rgba(224,48,58,0.6);
+	}
+
+	.corner-br {
+		bottom: 8px;
+		right: 8px;
+		border-top: 0;
+		border-left: 0;
+		border-bottom: 2px rgba(224,48,58,0.6);
+		border-right: 2px rgba(224,48,58,0.6);
+	}
+
+	.title {
+		color: white;
+		font-size: 26px;
+		font-weight: 900;
+		letter-spacing: 4px;
+		margin-bottom: 20px;
+		text-shadow: 0 2px 10px black, 0 0 20px rgba(224,48,58,0.5);
+	}
+
+	.nav {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.nav-button {
+		background-color: rgba(255,255,255,0.06);
+		color: rgba(255,255,255,0.85);
+		font-weight: 800;
+		font-size: 15px;
+		letter-spacing: 2px;
+		padding: 14px 0;
+		border-radius: 6px;
+		cursor: pointer;
+		margin-bottom: 10px;
+		transition: background-color 0.15s ease, transform 0.15s ease;
+	}
+
+	.nav-button:hover {
+		background-color: rgba(255,255,255,0.14);
+		transform: scale(1.02);
+	}
+
+	.nav-button.primary {
+		background-color: #e0303a;
+		color: white;
+		font-size: 17px;
+		padding: 15px 0;
+	}
+
+	.nav-button.primary:hover {
+		background-color: #ff4550;
+	}
+
+	.nav-button.quit {
+		background-color: rgba(255,255,255,0.03);
+		color: rgba(255,255,255,0.5);
+		font-size: 12px;
+		margin-top: 6px;
+		margin-bottom: 0;
+	}
+
+	.nav-button.quit:hover {
+		background-color: rgba(255,80,80,0.18);
+		color: white;
+	}
+
+	.nav-button.back {
+		margin-top: 6px;
+		margin-bottom: 0;
+	}
+
+	.sub-title {
+		color: rgba(255,255,255,0.45);
+		font-size: 12px;
+		font-weight: 800;
+		letter-spacing: 3px;
+		margin-bottom: 14px;
+	}
+
+	.controls {
+		background-color: rgba(255,255,255,0.05);
+		border-radius: 8px;
+		padding: 14px 18px;
+		margin-bottom: 16px;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.control-row {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		padding: 4px 0;
+	}
+
+	.control-row .key {
+		color: #1a1616;
+		background-color: #ffd257;
+		font-size: 12px;
+		font-weight: 800;
+		padding: 3px 10px;
+		border-radius: 5px;
+		letter-spacing: 1px;
+	}
+
+	.control-row .desc {
+		color: rgba(255,255,255,0.78);
+		font-size: 13px;
+	}
+
+	.setting-row {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		background-color: rgba(255,255,255,0.05);
+		border-radius: 8px;
+		padding: 12px 16px;
+		margin-bottom: 10px;
+	}
+
+	.setting-label {
+		color: rgba(255,255,255,0.8);
+		font-size: 13px;
+		font-weight: 700;
+	}
+
+	.setting-control {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+	}
+
+	.stepper-button {
+		width: 26px;
+		height: 26px;
+		background-color: rgba(255,255,255,0.12);
+		color: white;
+		font-weight: 800;
+		border-radius: 5px;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.stepper-button:hover {
+		background-color: rgba(255,255,255,0.22);
+	}
+
+	.setting-bar-bg {
+		width: 110px;
+		height: 8px;
+		background-color: rgba(0,0,0,0.4);
+		border-radius: 4px;
+		margin: 0 10px;
+		overflow: hidden;
+	}
+
+	.setting-bar-fill {
+		height: 100%;
+		background-color: #ffd257;
+		border-radius: 4px;
+	}
+
+	.choice-button {
+		background-color: rgba(255,255,255,0.12);
+		color: white;
+		font-weight: 800;
+		font-size: 12px;
+		letter-spacing: 1px;
+		padding: 6px 16px;
+		border-radius: 5px;
+		cursor: pointer;
+	}
+
+	.choice-button:hover {
+		background-color: rgba(255,255,255,0.22);
+	}
+
+	.choice-button.on {
+		background-color: #2f8a4a;
+	}
+
+	.choice-button.off {
+		background-color: rgba(255,255,255,0.12);
+	}
+
+	.settings-note {
+		color: rgba(255,255,255,0.35);
+		font-size: 11px;
+		font-style: italic;
+		line-height: 1.4;
+		margin-bottom: 14px;
+	}
+</style>
