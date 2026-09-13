@@ -9,7 +9,8 @@ public class EnemySoberingBartender : EnemyBase
 	protected override void SetDefaults()
 	{
 		MaxHP = 20f;
-		MoveSpeed = 125f;
+		// Middle of the pack - brisk enough to force a real decision about prioritizing it.
+		MoveSpeed = 205f;
 		Damage = 4f;
 		AttackRange = 45f;
 		AttackCooldown = 1.4f;

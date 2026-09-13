@@ -74,6 +74,20 @@ public static class GameEvents
 	/// <summary>Ask for a brief hit-stop (time scale dip). Duration in seconds (real time).</summary>
 	public static event Action<float> HitStopRequested;
 	public static void RaiseHitStopRequested( float duration ) => HitStopRequested?.Invoke( duration );
+
+	/// <summary>Fired every time damage actually lands on anyone (enemy or player), for the floating
+	/// damage number HUD. Args = world position to float the number up from, the amount, and what
+	/// kind of hit it was (drives color/size).</summary>
+	public static event Action<Vector3, float, DamageNumberKind> DamageNumber;
+	public static void RaiseDamageNumber( Vector3 worldPos, float amount, DamageNumberKind kind ) => DamageNumber?.Invoke( worldPos, amount, kind );
+}
+
+/// <summary>What kind of hit a floating damage number represents - purely cosmetic (color/size).</summary>
+public enum DamageNumberKind
+{
+	Normal,
+	Finisher,
+	PlayerDamage,
 }
 
 /// <summary>Small payload describing an enemy death, used for scoring/style/drunkenness hooks.</summary>

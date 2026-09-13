@@ -28,6 +28,7 @@ public class ThrownBottle : Component
 		var traveled = new Vector3( WorldPosition.x - _startPos.x, WorldPosition.y - _startPos.y, 0 ).Length;
 		if ( traveled >= MaxRange || Time.Now - _spawnTime >= MaxLifetime )
 		{
+			Vfx.ImpactPuff( WorldPosition, new Color( 0.5f, 0.8f, 0.9f ) );
 			GameObject.Destroy();
 			return;
 		}
@@ -42,6 +43,7 @@ public class ThrownBottle : Component
 			{
 				enemy.ApplyHit( Damage, Direction * Knockback, 0.4f, fromEnvironmental: true );
 				HitFeedback.PlayAttackImpact( 0.6f, 1 );
+				Vfx.ImpactPuff( WorldPosition, new Color( 0.5f, 0.8f, 0.9f ) );
 				GameObject.Destroy();
 				return;
 			}
