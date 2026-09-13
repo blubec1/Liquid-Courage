@@ -6,7 +6,9 @@ public class EnemyBrawler : EnemyBase
 	protected override void SetDefaults()
 	{
 		MaxHP = 30f;
-		MoveSpeed = 150f;
+		// Fastest of the three - lands right at the 5%-slower-than-player cap after OnAwake's
+		// jitter+clamp (see EnemyBase.MaxEnemyMoveSpeed).
+		MoveSpeed = 235f;
 		Damage = 6f;
 		AttackRange = 55f;
 		AttackCooldown = 1.2f;

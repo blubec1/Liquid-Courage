@@ -11,7 +11,7 @@ public class IsoCameraRig : Component
 {
 	public static IsoCameraRig Instance { get; private set; }
 
-	[Property] public Vector3 Offset { get; set; } = new( -500, -500, 600 );
+	[Property] public Vector3 Offset { get; set; } = new( -400, -400, 480 );
 	[Property] public float FollowLerp { get; set; } = 9f;
 
 	// Continuous ambient sway while the player is drunk - a GTA5-style light drift/wobble, not a

@@ -47,6 +47,7 @@ public class PlayerStats : Component
 
 		var fraction = MaxHP > 0f ? System.Math.Clamp( amount / MaxHP, 0f, 1f ) : 0f;
 		GameEvents.RaisePlayerDamaged( amount, fraction );
+		GameEvents.RaiseDamageNumber( WorldPosition + Vector3.Up * 70f, amount, DamageNumberKind.PlayerDamage );
 		HitFeedback.PlayPlayerHurt( fraction );
 		Vfx.PlayerHit( WorldPosition, fraction );
 		PlayerAnimationDriver.Local?.FlashHit();
