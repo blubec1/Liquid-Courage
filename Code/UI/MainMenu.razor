@@ -7,8 +7,10 @@
 @namespace DrunkenBarFight
 
 <root>
-	<div class="menu-root @(Visible ? "visible" : "")">
+	<div class="menu-root @(Visible ? "visible" : "") @(_screen == MenuScreen.Customize ? "customize-mode" : "")">
 
+		<!-- Ash + neon glow render on every screen, including Customize - only the title/footer stay
+		     screen-specific below. -->
 		<div class="glow glow-a" style="opacity:@(GlowAAlpha.ToString( "0.##" ));"></div>
 		<div class="glow glow-b" style="opacity:@(GlowBAlpha.ToString( "0.##" ));"></div>
 
@@ -27,18 +29,93 @@
 			<div class="corner corner-bl"></div>
 			<div class="corner corner-br"></div>
 
-			<div class="title-wrap">
-				<div class="title-line1" style="transform:scale(@(TitlePulse.ToString( "0.###" ))); text-shadow:@(TitleTextShadowSmall);">DRUNKEN</div>
-				<div class="title-line2" style="transform:scale(@(TitlePulse.ToString( "0.###" ))); text-shadow:@(TitleTextShadow);">BAR FIGHT</div>
-			</div>
+			@if ( _screen != MenuScreen.Customize )
+			{
+				<div class="title-wrap">
+					<div class="title-line1" style="transform:scale(@(TitlePulse.ToString( "0.###" ))); text-shadow:@(TitleTextShadowSmall);">DRUNKEN</div>
+					<div class="title-line2" style="transform:scale(@(TitlePulse.ToString( "0.###" ))); text-shadow:@(TitleTextShadow);">BAR FIGHT</div>
+				</div>
+			}
 
 			@if ( _screen == MenuScreen.Root )
 			{
 				<div class="nav">
 					<div class="nav-button primary" style="box-shadow:0 0 @(PlayGlowSize.ToString( "0.#" ))px rgba(224,48,58,@(PlayGlowAlpha.ToString( "0.##" ))); transform:scale(@(PlayPulse.ToString( "0.###" )));" onclick="@PlayClicked">PLAY</div>
+					<div class="nav-button" onclick="@GoToCustomize">CUSTOMIZE</div>
 					<div class="nav-button" onclick="@GoToHowToPlay">HOW TO PLAY</div>
 					<div class="nav-button" onclick="@GoToSettings">SETTINGS</div>
 				</div>
+			}
+
+			@if ( _screen == MenuScreen.Customize )
+			{
+				<div class="sub-title">CUSTOMIZE</div>
+
+				<div class="customize-list">
+					<div class="customize-row">
+						<div class="customize-label">SKIN</div>
+						<div class="customize-control">
+							<div class="stepper-button" onclick="@SkinPrev">&lt;</div>
+							<div class="customize-value">@SkinLabel</div>
+							<div class="stepper-button" onclick="@SkinNext">&gt;</div>
+						</div>
+					</div>
+
+					<div class="customize-row">
+						<div class="customize-label">TOP</div>
+						<div class="customize-control">
+							<div class="stepper-button" onclick="@TopPrev">&lt;</div>
+							<div class="customize-value">@TopLabel</div>
+							<div class="stepper-button" onclick="@TopNext">&gt;</div>
+						</div>
+					</div>
+
+					<div class="customize-row">
+						<div class="customize-label">BOTTOM</div>
+						<div class="customize-control">
+							<div class="stepper-button" onclick="@BottomPrev">&lt;</div>
+							<div class="customize-value">@BottomLabel</div>
+							<div class="stepper-button" onclick="@BottomNext">&gt;</div>
+						</div>
+					</div>
+
+					<div class="customize-row">
+						<div class="customize-label">SHOES</div>
+						<div class="customize-control">
+							<div class="stepper-button" onclick="@ShoesPrev">&lt;</div>
+							<div class="customize-value">@ShoesLabel</div>
+							<div class="stepper-button" onclick="@ShoesNext">&gt;</div>
+						</div>
+					</div>
+
+					<div class="customize-row">
+						<div class="customize-label">HEAD</div>
+						<div class="customize-control">
+							<div class="stepper-button" onclick="@HeadPrev">&lt;</div>
+							<div class="customize-value">@HeadLabel</div>
+							<div class="stepper-button" onclick="@HeadNext">&gt;</div>
+						</div>
+					</div>
+
+					<div class="customize-row">
+						<div class="customize-label">ACCESSORY</div>
+						<div class="customize-control">
+							<div class="stepper-button" onclick="@AccessoryPrev">&lt;</div>
+							<div class="customize-value">@AccessoryLabel</div>
+							<div class="stepper-button" onclick="@AccessoryNext">&gt;</div>
+						</div>
+					</div>
+
+					<div class="customize-row">
+						<div class="customize-label">ROTATE</div>
+						<div class="customize-control">
+							<div class="stepper-button" onclick="@RotateLeft">&lt;</div>
+							<div class="stepper-button" onclick="@RotateRight">&gt;</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="nav-button back" onclick="@GoToRoot">BACK</div>
 			}
 
 			@if ( _screen == MenuScreen.HowToPlay )
@@ -97,14 +174,17 @@
 
 		</div>
 
-		<div class="footer">last call comes for everyone</div>
+		@if ( _screen != MenuScreen.Customize )
+		{
+			<div class="footer">last call comes for everyone</div>
+		}
 
 	</div>
 </root>
 
 @code
 {
-	enum MenuScreen { Root, HowToPlay, Settings }
+	enum MenuScreen { Root, HowToPlay, Settings, Customize }
 
 	MenuScreen _screen = MenuScreen.Root;
 
@@ -203,13 +283,60 @@
 
 	void PlayClicked()
 	{
+		PlayerPreviewCamera.Instance?.SetActive( false );
 		_screen = MenuScreen.Root;
 		GameManager.Instance?.StartGame();
 	}
 
 	void GoToHowToPlay() => _screen = MenuScreen.HowToPlay;
 	void GoToSettings() => _screen = MenuScreen.Settings;
-	void GoToRoot() => _screen = MenuScreen.Root;
+
+	void GoToRoot()
+	{
+		if ( _screen == MenuScreen.Customize )
+			PlayerPreviewCamera.Instance?.SetActive( false );
+
+		_screen = MenuScreen.Root;
+	}
+
+	void GoToCustomize()
+	{
+		_screen = MenuScreen.Customize;
+		PlayerPreviewCamera.Instance?.SetActive( true );
+
+		// Push the already-saved outfit onto the preview stand right away - otherwise it only shows
+		// up after the first slot click, since Cycle() is what triggers ApplyToLivePlayerIfPresent
+		// and nothing calls it just from opening the screen.
+		Outfit.ApplyTo( PlayerPreviewRotator.Instance?.BodyRenderer );
+	}
+
+	// --- Customize screen: dedicated no-arg method per slot per direction (no lambda-in-onclick -
+	// this codebase has no precedent for that pattern, plain named methods are the proven path). ---
+
+	PlayerOutfit Outfit => PlayerOutfit.Instance;
+
+	string SkinLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Skin ) ?? "Default";
+	string TopLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Top ) ?? "None";
+	string BottomLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Bottom ) ?? "None";
+	string ShoesLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Shoes ) ?? "None";
+	string HeadLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Head ) ?? "None";
+	string AccessoryLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Accessory ) ?? "None";
+
+	void SkinPrev() => Outfit.CyclePrev( PlayerOutfit.Slot.Skin );
+	void SkinNext() => Outfit.CycleNext( PlayerOutfit.Slot.Skin );
+	void TopPrev() => Outfit.CyclePrev( PlayerOutfit.Slot.Top );
+	void TopNext() => Outfit.CycleNext( PlayerOutfit.Slot.Top );
+	void BottomPrev() => Outfit.CyclePrev( PlayerOutfit.Slot.Bottom );
+	void BottomNext() => Outfit.CycleNext( PlayerOutfit.Slot.Bottom );
+	void ShoesPrev() => Outfit.CyclePrev( PlayerOutfit.Slot.Shoes );
+	void ShoesNext() => Outfit.CycleNext( PlayerOutfit.Slot.Shoes );
+	void HeadPrev() => Outfit.CyclePrev( PlayerOutfit.Slot.Head );
+	void HeadNext() => Outfit.CycleNext( PlayerOutfit.Slot.Head );
+	void AccessoryPrev() => Outfit.CyclePrev( PlayerOutfit.Slot.Accessory );
+	void AccessoryNext() => Outfit.CycleNext( PlayerOutfit.Slot.Accessory );
+
+	void RotateLeft() => PlayerPreviewRotator.Instance?.Nudge( -30f );
+	void RotateRight() => PlayerPreviewRotator.Instance?.Nudge( 30f );
 
 	void VolumeDown() => Settings.SetMasterVolume( Settings.MasterVolume - 0.1f );
 	void VolumeUp() => Settings.SetMasterVolume( Settings.MasterVolume + 0.1f );
@@ -231,6 +358,7 @@
 	// choppy for the rising/falling motes in particular, reported as "slow and laggy".
 	protected override int BuildHash() => System.HashCode.Combine(
 		Visible, _screen, Settings.MasterVolume, Settings.ResolutionIndex, Settings.Fullscreen,
+		Outfit.Version,
 		Visible ? (int)(Time.Now * 30) : 0 );
 }
 
@@ -253,6 +381,18 @@
 	.menu-root.visible {
 		opacity: 1;
 		pointer-events: all;
+		background-color: rgba(9,6,8,0.96);
+	}
+
+	/* Customize screen shifts the panel to the left and shows nothing but the plain black
+	   background + the dedicated PlayerPreviewCamera viewport (see bar.scene) on the right - no
+	   ambient glow/ash competing with it. */
+	.menu-root.customize-mode {
+		justify-content: flex-start;
+		padding-left: 6%;
+	}
+
+	.menu-root.customize-mode.visible {
 		background-color: rgba(9,6,8,0.96);
 	}
 
@@ -558,6 +698,47 @@
 
 	.choice-button.off {
 		background-color: rgba(255,255,255,0.12);
+	}
+
+	.customize-list {
+		display: flex;
+		flex-direction: column;
+		margin-bottom: 4px;
+	}
+
+	.customize-row {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		background-color: rgba(255,255,255,0.05);
+		border-radius: 8px;
+		padding: 10px 14px;
+		margin-bottom: 8px;
+	}
+
+	.customize-label {
+		color: rgba(255,255,255,0.8);
+		font-size: 12px;
+		font-weight: 800;
+		letter-spacing: 1px;
+	}
+
+	.customize-control {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+	}
+
+	.customize-value {
+		width: 150px;
+		color: #ffd257;
+		font-size: 12px;
+		font-weight: 700;
+		text-align: center;
+		margin: 0 8px;
+		white-space: nowrap;
+		overflow: hidden;
 	}
 
 	.settings-note {

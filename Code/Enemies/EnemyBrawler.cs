@@ -18,7 +18,21 @@ public class EnemyBrawler : EnemyBase
 
 	public override void ApplyVisual()
 	{
-		if ( BodyRenderer is not null )
-			BodyRenderer.Tint = new Color( 0.75f, 0.35f, 0.35f, 1f );
+		if ( BodyRenderer is null )
+			return;
+
+		// No Tint override anymore - a real "Human Skin N" clothing item now sets actual skin tone
+		// (see EnemyOutfitter), and multiplying a color tint on top of that was muddying/discoloring
+		// the real skin texture (that's what was making everyone look flat orange-brown regardless
+		// of which tone got picked). Leave the renderer at its natural white tint so the real skin
+		// and clothing colors show through undistorted.
+		BodyRenderer.Tint = Color.White;
+
+		EnemyOutfitter.Apply( BodyRenderer, "Brawler",
+			new[] { "Hawaiian", "T-Shirt", "Tee", "Shirt", "Hoodie", "Jumper", "Sweater", "Polo", "Tank", "Top" },
+			new[] { "Jeans", "Trousers", "Pants", "Shorts", "Chinos", "Slacks" },
+			new[] { "Trainers", "Shoes", "Sneakers", "Boots", "Sandals" },
+			new[] { "Cap", "Beanie", "Hat", "Hair", "Bandana" },
+			new[] { "Glasses", "Sunglasses", "Watch", "Necklace", "Chain", "Bracelet" } );
 	}
 }

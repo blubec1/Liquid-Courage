@@ -62,8 +62,10 @@ public abstract class EnemyBase : Component
 		"hand_L", "hand_R",
 	};
 
-	const float AttackBlendIn = 0.08f;
-	const float AttackBlendOut = 0.12f;
+	// Bumped from 0.08/0.12 to match PlayerAnimationDriver's own increase - the shorter values
+	// snapped in/out of the attack pose almost instantly, reading as stiff rather than fluid.
+	const float AttackBlendIn = 0.12f;
+	const float AttackBlendOut = 0.18f;
 
 	SceneModel _sampleModel;
 	BoneCollection.Bone[] _overrideBones;
@@ -250,9 +252,12 @@ public abstract class EnemyBase : Component
 			_sampleModel.CurrentSequence.Time = _sequenceTime;
 			_sampleModel.Update( 0f );
 
-			var fadeIn = AttackBlendIn > 0f ? System.Math.Clamp( _sequenceTime / AttackBlendIn, 0f, 1f ) : 1f;
+			// Smoothstep instead of a raw linear ramp - see PlayerAnimationDriver.Smoothstep for the
+			// same reasoning (a straight-line blend snaps to a noticeable speed change right at the
+			// start/end of the fade, which read as mechanical rather than fluid).
+			var fadeIn = AttackBlendIn > 0f ? Smoothstep( System.Math.Clamp( _sequenceTime / AttackBlendIn, 0f, 1f ) ) : 1f;
 			var remaining = _attackSequenceRevertTime - Time.Now;
-			var fadeOut = AttackBlendOut > 0f ? System.Math.Clamp( remaining / AttackBlendOut, 0f, 1f ) : 1f;
+			var fadeOut = AttackBlendOut > 0f ? Smoothstep( System.Math.Clamp( remaining / AttackBlendOut, 0f, 1f ) ) : 1f;
 			_currentBlendWeight = System.MathF.Min( fadeIn, fadeOut );
 
 			_sampleModel.RenderingEnabled = false;
@@ -278,6 +283,14 @@ public abstract class EnemyBase : Component
 			try { _sampleModel.Transform = new Transform( new Vector3( 0, 0, -10000 ) ); } catch { }
 			try { BodyRenderer.ClearPhysicsBones(); } catch { }
 		}
+	}
+
+	/// <summary>Classic ease-in/ease-out cubic (3t²-2t³) - see PlayerAnimationDriver.Smoothstep, kept
+	/// as a separate copy here since EnemyBase and PlayerAnimationDriver aren't related types.</summary>
+	static float Smoothstep( float t )
+	{
+		t = System.Math.Clamp( t, 0f, 1f );
+		return t * t * (3f - 2f * t);
 	}
 
 	protected override void OnUpdate()

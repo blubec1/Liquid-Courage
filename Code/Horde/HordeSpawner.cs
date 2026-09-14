@@ -85,7 +85,14 @@ public class HordeSpawner : Component
 		go.Tags.Add( "enemy" );
 
 		var renderer = go.AddComponent<SkinnedModelRenderer>();
-		renderer.Model = Model.Load( "models/citizen/citizen.vmdl" );
+		// Must be the same custom retargeted model the player uses, NOT the plain stock citizen -
+		// "Punching_1"/"Hook_Punch_2" (played by EnemyBase's attack bone-blend) only exist as
+		// sequences on animations/retargeted/player_animations.vmdl. Loading plain citizen.vmdl here
+		// meant the hidden sample model couldn't find those sequences and just sat in bind pose
+		// (T-pose), which then got blended onto the real body every time an enemy attacked. Same
+		// skeleton either way (this model is built on top of citizen's), so locomotion/tint/scale
+		// all still work identically.
+		renderer.Model = Model.Load( "animations/retargeted/player_animations.vmdl" );
 
 		// Without a collider here the player's CharacterController has nothing to push against
 		// and just walks straight through enemies. Using the citizen model's own collision hull
