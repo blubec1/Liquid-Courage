@@ -1,0 +1,30 @@
+{
+  "publish": {
+    "Enabled": false,
+    "ProjectConfig": {
+      "Title": "Bar Map",
+      "Type": "map",
+      "Org": "local",
+      "Ident": "bar_map",
+      "Schema": 0,
+      "IncludeSourceFiles": false,
+      "Resources": null,
+      "PackageReferences": [],
+      "EditorReferences": [
+        "baik.doublet_pavement#28474",
+        "facepunch.concrete_damaged#293121",
+        "facepunch.floor_asphalt_b#291913",
+        "facepunch.floor_asphalt_blend_02#313919",
+        "facepunch.floor_wooden_deck_a#291863",
+        "facepunch.woodenflooringbblend#313975",
+        "mapperskai.road1#10774",
+        "rustextended.logwood_interior_a#43297"
+      ],
+      "Mounts": null,
+      "IsStandaloneOnly": false,
+      "Metadata": {
+        "SingleAssetSource": "maps/bar_map.vmap"
+      }
+    }
+  }
+}
