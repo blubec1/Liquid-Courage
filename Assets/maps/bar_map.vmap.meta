@@ -1,0 +1,50 @@
+{
+  "publish": {
+    "Enabled": false,
+    "ProjectConfig": {
+      "Title": "Bar Map",
+      "Type": "map",
+      "Org": "local",
+      "Ident": "bar_map",
+      "Schema": 0,
+      "IncludeSourceFiles": false,
+      "Resources": null,
+      "PackageReferences": [],
+      "EditorReferences": [
+        "baik.barstool#53640",
+        "baik.doublet_pavement#28474",
+        "baik.flatscreen_tv#19910",
+        "baik.glassbottle#19526",
+        "dingusgames.bottle_dangvodka#48719",
+        "dingusgames.bottle_jimdingus#48716",
+        "facepunch.concrete_damaged#293121",
+        "facepunch.floor_asphalt_b#291913",
+        "facepunch.floor_asphalt_blend_02#313919",
+        "facepunch.floor_wooden_deck_a#291863",
+        "facepunch.metal_painted_black_a_hs#291749",
+        "facepunch.wooden_chair_a#274758",
+        "facepunch.woodenceilinga#314035",
+        "facepunch.woodenflooringbblend#313975",
+        "fish.mansion_hallway_table#89661",
+        "fpopium.vodka#184757",
+        "frogpond.bartable#12947",
+        "gimlet.mdl_plate#9553",
+        "greg.zmb_perk_bottle_jugg#35611",
+        "gtavteam.gta5pwhiskeybottles#103029",
+        "gtavteam.gta5v16midapartdetaposter01#93623",
+        "gtavteam.gta5vresrcottonbuds#100349",
+        "luke.fwroundtable#22970",
+        "luke.victorian_roundtable#22962",
+        "mapperskai.road1#10774",
+        "orus.worgen_bottle_02#34336",
+        "rustextended.logwood_interior_a#43297",
+        "saandy.bottle_jameson#8620"
+      ],
+      "Mounts": null,
+      "IsStandaloneOnly": false,
+      "Metadata": {
+        "SingleAssetSource": "maps/bar_map.vmap"
+      }
+    }
+  }
+}
