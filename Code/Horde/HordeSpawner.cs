@@ -105,6 +105,17 @@ public class HordeSpawner : Component
 		}
 		catch { }
 
+		// Without a collider here the player's CharacterController has nothing to push against
+		// and just walks straight through enemies. Using the citizen model's own collision hull
+		// (same model that ragdoll/ModelPhysics relies on) rather than guessing at capsule/sphere
+		// dimensions by hand.
+		try
+		{
+			var collider = go.AddComponent<ModelCollider>();
+			collider.Model = renderer.Model;
+		}
+		catch { }
+
 		var animHelper = go.AddComponent<Sandbox.Citizen.CitizenAnimationHelper>();
 		animHelper.Target = renderer;
 

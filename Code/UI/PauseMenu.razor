@@ -1,6 +1,5 @@
 @using Sandbox;
 @using Sandbox.UI;
-@using System;
 @using DrunkenBarFight;
 @inherits PanelComponent
 @namespace DrunkenBarFight
@@ -8,19 +7,19 @@
 <root>
 	<div class="pause-root @(Visible ? "visible" : "")">
 
-		<div class="panel" style="box-shadow:@(PanelBoxShadow); transform:scale(@(PanelPulse.ToString( "0.###" )));">
+		<div class="panel">
 
 			<div class="corner corner-tl"></div>
 			<div class="corner corner-tr"></div>
 			<div class="corner corner-bl"></div>
 			<div class="corner corner-br"></div>
 
-			<div class="title" style="text-shadow:@(TitleTextShadow);">PAUSED</div>
+			<div class="title">PAUSED</div>
 
 			@if ( _screen == MenuScreen.Root )
 			{
 				<div class="nav">
-					<div class="nav-button primary" style="box-shadow:0 0 @(ResumeGlowSize.ToString( "0.#" ))px rgba(224,48,58,@(ResumeGlowAlpha.ToString( "0.##" )));" onclick="@ResumeClicked">RESUME</div>
+					<div class="nav-button primary" onclick="@ResumeClicked">RESUME</div>
 					<div class="nav-button" onclick="@GoToHowToPlay">HOW TO PLAY</div>
 					<div class="nav-button" onclick="@GoToSettings">SETTINGS</div>
 					<div class="nav-button quit" onclick="@QuitClicked">QUIT TO MENU</div>
@@ -94,21 +93,6 @@
 
 	public string ResolutionLabel => Settings.ResolutionLabel( Settings.ResolutionIndex );
 
-	// --- Ambient "alive" motion - same Time.Now-driven-inline-style approach as MainMenu.razor
-	// (and Hud.razor before it). Kept subtler than the main menu since this overlays live gameplay
-	// and shouldn't be distracting. ---
-
-	public float PanelPulse => 1f + MathF.Sin( Time.Now * 1.4f ) * 0.006f;
-
-	float TitleGlowAlpha => 0.4f + MathF.Sin( Time.Now * 1.8f ) * 0.18f;
-	public string TitleTextShadow => $"0 2px 10px black, 0 0 18px rgba(224,48,58,{TitleGlowAlpha.ToString( "0.##" )})";
-
-	float PanelGlowAlpha => 0.1f + MathF.Sin( Time.Now * 1f ) * 0.06f;
-	public string PanelBoxShadow => $"0 10px 40px rgba(0,0,0,0.6), 0 0 26px rgba(224,48,58,{PanelGlowAlpha.ToString( "0.##" )})";
-
-	public float ResumeGlowAlpha => 0.22f + MathF.Sin( Time.Now * 2.2f ) * 0.16f;
-	public float ResumeGlowSize => 14f + MathF.Sin( Time.Now * 2.2f ) * 7f;
-
 	void ResumeClicked()
 	{
 		_screen = MenuScreen.Root;
@@ -131,11 +115,8 @@
 	void CycleResolution() => Settings.CycleResolution();
 	void ToggleFullscreen() => Settings.SetFullscreen( !Settings.Fullscreen );
 
-	// Time bucket forces ~12Hz rebuilds while paused so the glow/pulse inline styles above actually
-	// animate - see MainMenu.razor's BuildHash for the same technique and its reasoning.
 	protected override int BuildHash() => System.HashCode.Combine(
-		Visible, _screen, Settings.MasterVolume, Settings.ResolutionIndex, Settings.Fullscreen,
-		Visible ? (int)(Time.Now * 12) : 0 );
+		Visible, _screen, Settings.MasterVolume, Settings.ResolutionIndex, Settings.Fullscreen );
 }
 
 <style>
@@ -170,7 +151,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: stretch;
-		transition: transform 0.2s ease;
+		box-shadow: 0 10px 40px rgba(0,0,0,0.6);
 	}
 
 	.corner {
@@ -214,7 +195,7 @@
 		font-weight: 900;
 		letter-spacing: 4px;
 		margin-bottom: 20px;
-		text-align: center;
+		text-shadow: 0 2px 10px black, 0 0 20px rgba(224,48,58,0.5);
 	}
 
 	.nav {
@@ -233,10 +214,6 @@
 		border-radius: 6px;
 		cursor: pointer;
 		margin-bottom: 10px;
-		text-align: center;
-		display: flex;
-		align-items: center;
-		justify-content: center;
 		transition: background-color 0.15s ease, transform 0.15s ease;
 	}
 
@@ -280,7 +257,6 @@
 		font-weight: 800;
 		letter-spacing: 3px;
 		margin-bottom: 14px;
-		text-align: center;
 	}
 
 	.controls {
@@ -399,6 +375,5 @@
 		font-style: italic;
 		line-height: 1.4;
 		margin-bottom: 14px;
-		text-align: center;
 	}
 </style>

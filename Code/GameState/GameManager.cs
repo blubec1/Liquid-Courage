@@ -88,13 +88,6 @@ public class GameManager : Component
 			return;
 
 		State = RunState.Playing;
-
-		// Apply the player's saved Customize-screen outfit/skin now that a run is actually starting -
-		// the live-apply from the Customize screen itself only fires while that screen is open, so
-		// this covers the normal "picked an outfit last session, now pressing Play" path too.
-		try { PlayerOutfit.Instance.ApplyTo( PlayerAnimationDriver.Local?.BodyRenderer ); }
-		catch ( Exception ex ) { Log.Warning( $"[GameManager] Failed to apply PlayerOutfit at run start: {ex.Message}" ); }
-
 		GameEvents.RaiseRunStarted();
 	}
 
