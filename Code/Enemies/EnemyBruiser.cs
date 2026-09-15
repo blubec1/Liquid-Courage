@@ -9,7 +9,9 @@ public class EnemyBruiser : EnemyBase
 	protected override void SetDefaults()
 	{
 		MaxHP = 95f;
-		MoveSpeed = 95f;
+		// Slowest archetype but still a real threat, not a crawl - its telegraphed windup is what
+		// makes it fair, not a snail's pace.
+		MoveSpeed = 165f;
 		Damage = 16f;
 		AttackRange = 78f;
 		AttackCooldown = 2.2f;
