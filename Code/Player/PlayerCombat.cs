@@ -102,6 +102,7 @@ public class PlayerCombat : Component
 
 		HitFeedback.PlayAttackImpact( def.ImpactStrength, hits.Count );
 		PlayerAnimationDriver.Local?.PlayAttackSwing( def );
+		Vfx.AttackArc( origin, facing, def.ArcDegrees, def.Range, new Color( 0.9f, 0.95f, 1f ) );
 
 		if ( def.DisableMovement )
 		{
@@ -135,6 +136,10 @@ public class PlayerCombat : Component
 
 		HitFeedback.PlayFinisherImpact( finisher.ImpactStrength, hits.Count );
 		PlayerAnimationDriver.Local?.PlayFinisher( finisher );
+		Vfx.AttackArc( origin, facing, finisher.ArcDegrees, finisher.Range, new Color( 1f, 0.8f, 0.3f ) );
+
+		if ( hits.Count > 0 )
+			Vfx.FinisherBurst( origin + facing * (finisher.Range * 0.6f) + Vector3.Up * 55f );
 
 		if ( finisher.DisableMovement )
 		{

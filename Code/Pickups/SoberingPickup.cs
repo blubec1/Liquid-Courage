@@ -26,6 +26,7 @@ public class SoberingPickup : Component
 		{
 			DrunkennessSystem.Local?.Reduce( DrunkennessReduction );
 			GameEvents.RaiseShakeRequested( 1.5f, 0.06f );
+			Vfx.PickupSparkle( WorldPosition );
 			GameObject.Destroy();
 		}
 	}

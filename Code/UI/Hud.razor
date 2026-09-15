@@ -1,5 +1,7 @@
 @using Sandbox;
 @using Sandbox.UI;
+@using System;
+@using System.Collections.Generic;
 @using DrunkenBarFight;
 @inherits PanelComponent
 @namespace DrunkenBarFight
@@ -55,6 +57,20 @@
 			@foreach ( var f in FinisherLibrary.All )
 			{
 				<div class="finisher-row">@f.Description &rarr; @f.Name</div>
+			}
+		</div>
+
+		<div class="damage-numbers-layer">
+			@foreach ( var d in DamageNumberViews )
+			{
+				<div class="damage-number" style="left:@(d.LeftPercent.ToString( "0.##" ))%; top:@(d.TopPercent.ToString( "0.##" ))%; opacity:@(d.Opacity.ToString( "0.##" )); color:@(d.ColorHex); transform:translate(-50%,-50%) scale(@(d.Scale.ToString( "0.##" )));">@d.Text</div>
+			}
+		</div>
+
+		<div class="enemy-indicators-layer">
+			@foreach ( var e in EnemyIndicatorViews )
+			{
+				<div class="enemy-indicator" style="left:@(e.LeftPercent.ToString( "0.##" ))%; top:@(e.TopPercent.ToString( "0.##" ))%; transform:translate(-50%,-50%) rotate(@(e.AngleDeg.ToString( "0.##" ))deg);"></div>
 			}
 		</div>
 
@@ -541,5 +557,32 @@
 		color: white;
 		font-size: 12px;
 		opacity: 0.85;
+	}
+
+	.damage-numbers-layer, .enemy-indicators-layer {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		top: 0;
+		left: 0;
+	}
+
+	.damage-number {
+		position: absolute;
+		font-weight: 800;
+		font-size: 22px;
+		color: white;
+		text-shadow: 0 2px 3px black, 0 0 10px rgba(0,0,0,0.7);
+		white-space: nowrap;
+	}
+
+	.enemy-indicator {
+		position: absolute;
+		width: 0;
+		height: 0;
+		border-top: 8px solid transparent;
+		border-bottom: 8px solid transparent;
+		border-left: 15px solid rgba(255,60,60,0.85);
+		filter: drop-shadow(0 0 4px rgba(255,20,20,0.7));
 	}
 </style>
