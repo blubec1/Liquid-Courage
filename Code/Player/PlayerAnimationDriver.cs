@@ -90,6 +90,9 @@ public class PlayerAnimationDriver : Component
 	bool _drinkSequenceActive;
 	float _drinkSequenceRevertTime;
 
+	// --- Drunk walk state (see DriveDrunkWalk) ---
+	bool _drunkWalkActive;
+
 	// --- Hit-flash state (see FlashHit) ---
 	const float HitFlashDuration = 0.18f;
 	float _hitFlashStartTime = -999f;
@@ -177,6 +180,8 @@ public class PlayerAnimationDriver : Component
 	protected override void OnUpdate()
 	{
 		DriveLocomotion();
+		DriveDrunkWalk();
+		DriveAttackBoneOverrides();
 		DriveDrinkSequenceRevert();
 		DriveAttackVisual();
 		DriveDrinkVisual();
@@ -265,19 +270,44 @@ public class PlayerAnimationDriver : Component
 	}
 
 	/// <summary>
-	/// Attack path. Used to blend a hidden secondary SceneModel's sampled pose onto just the
-	/// upper-body bones each frame while the animgraph kept driving the legs (see
-	/// PLAN_AnimationBlending.md) - but two separate fix attempts at the world/local bone-space
-	/// conversion (re-parenting the sample model's transform every frame, then a ToLocal/ToWorld
-	/// round-trip) both produced visible corruption of the upper body (invisible, then outright
-	/// wrecked geometry). Rather than attempt a third theory blind, this now always takes the same
-	/// reliable full-body sequence swap path the drink "chug" animation already uses successfully -
-	/// legs freeze for the attack's duration instead of continuing to walk, but the body renders
-	/// correctly. The bone-blend fields/methods below are kept but no longer invoked from here.
+	/// Attack path: leaves the main animgraph running (legs/hips keep walking) and instead scrubs
+	/// the clip on the hidden secondary SceneModel, which DriveAttackBoneOverrides blends onto just
+	/// the upper-body bones every frame (see that method's doc comment for the coordinate-space
+	/// pipeline - the earlier invisible/wrecked-body bugs both traced back to space mismatches in
+	/// that pipeline, now fixed: fresh animation-only sampling, a flushed sample pose via
+	/// Update(0f), and converting the blended world pose to model-local before SetBoneTransform).
+	/// Falls back to the full-body swap if the bone-blend setup isn't available on this model.
 	/// </summary>
 	bool TryPlaySequenceBlended( string sequenceName, float duration )
 	{
-		return TryPlaySequenceFull( sequenceName, duration );
+		if ( string.IsNullOrEmpty( sequenceName ) )
+			return false;
+
+		if ( _sampleModel is null || _overrideBones is null )
+		{
+			Log.Info( $"[AnimBlend] '{sequenceName}': no sample model/bones, falling back to full-body swap." );
+			return TryPlaySequenceFull( sequenceName, duration );
+		}
+
+		try
+		{
+			_sampleModel.CurrentSequence.Name = sequenceName;
+			_sampleModel.CurrentSequence.Time = 0f;
+
+			_sequenceTime = 0f;
+			_currentBlendWeight = 0f;
+			_attackSequenceActive = true;
+			_attackSequenceRevertTime = Time.Now + duration;
+
+			Log.Info( $"[AnimBlend] Playing '{sequenceName}' (blended, {duration:0.00}s)." );
+			return true;
+		}
+		catch ( System.Exception ex )
+		{
+			Log.Warning( $"[AnimBlend] '{sequenceName}' blended playback threw, falling back to full-body swap: {ex.Message}" );
+			_attackSequenceActive = false;
+			return TryPlaySequenceFull( sequenceName, duration );
+		}
 	}
 
 	/// <summary>Old/simple approach: fully disables the animgraph on the main body and plays the

@@ -49,6 +49,32 @@ public abstract class EnemyBase : Component
 	bool _pendingWasEnvironmental;
 	float _deathStartTime = -1f;
 
+	// --- Attack bone-blend state (mirrors PlayerAnimationDriver's DriveAttackBoneOverrides - see
+	// that file's doc comment for the full coordinate-space explanation. Kept local to EnemyBase
+	// rather than shared so every archetype gets it for free with no extra wiring.) ---
+	static readonly string[] UpperBodyBones =
+	{
+		"spine_0", "spine_1", "spine_2", "spine_3",
+		"neck_0", "head",
+		"clavicle_L", "clavicle_R",
+		"arm_upper_L", "arm_upper_R",
+		"arm_lower_L", "arm_lower_R",
+		"hand_L", "hand_R",
+	};
+
+	// Bumped from 0.08/0.12 to match PlayerAnimationDriver's own increase - the shorter values
+	// snapped in/out of the attack pose almost instantly, reading as stiff rather than fluid.
+	const float AttackBlendIn = 0.12f;
+	const float AttackBlendOut = 0.18f;
+
+	SceneModel _sampleModel;
+	BoneCollection.Bone[] _overrideBones;
+	bool _attackSequenceActive;
+	float _attackSequenceRevertTime;
+	float _sequenceTime;
+	float _currentBlendWeight;
+	bool _boneBlendSetupTried;
+
 	// Real physics ragdoll on death via Sandbox.ModelPhysics (added to this GameObject, which
 	// already carries the SkinnedModelRenderer). The animgraph is switched off first so it stops
 	// fighting the physics-driven pose. Total lifetime from death to despawn is 3 seconds: a short
