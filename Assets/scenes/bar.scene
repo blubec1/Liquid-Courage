@@ -746,11 +746,7 @@
       "__version": 2,
       "Flags": 0,
       "Name": "PlayerPreviewStand",
-<<<<<<< HEAD
-      "Position": "0,0,8000",
-=======
       "Position": "-1734.22791,866.361938,493.787781",
->>>>>>> 9aa888e851918b35d1ec4bf32fa9526ba7ceb901
       "Rotation": "0,0,0,1",
       "Scale": "1.14999998,1.14999998,1",
       "Tags": "preview_character",
@@ -827,11 +823,7 @@
       "__version": 2,
       "Flags": 0,
       "Name": "PlayerPreviewCamera",
-<<<<<<< HEAD
-      "Position": "320,0,8038",
-=======
       "Position": "-1414.22791,866.361938,531.787781",
->>>>>>> 9aa888e851918b35d1ec4bf32fa9526ba7ceb901
       "Rotation": "0,0,1,0",
       "Scale": "1,1,1",
       "Tags": "",
@@ -847,11 +839,7 @@
           "__guid": "7e3f9a10-58b1-4a2e-9c31-bb1f2d4e6a11",
           "__enabled": true,
           "Flags": 0,
-<<<<<<< HEAD
-          "BackgroundColor": "0,0,0,1",
-=======
           "BackgroundColor": "0,0,0,0",
->>>>>>> 9aa888e851918b35d1ec4bf32fa9526ba7ceb901
           "ClearFlags": "All",
           "EnablePostProcessing": false,
           "FieldOfView": 40,
@@ -868,17 +856,10 @@
           "PostProcessAnchor": null,
           "Priority": 2,
           "RenderExcludeTags": "",
-<<<<<<< HEAD
-          "RenderTags": "preview_character",
-          "RenderTexture": null,
-          "TargetEye": "None",
-          "Viewport": "0.519999981,0.0799999982,0.439999998,0.860000014",
-=======
           "RenderTags": "",
           "RenderTexture": null,
           "TargetEye": "None",
           "Viewport": "0,0,1,1",
->>>>>>> 9aa888e851918b35d1ec4bf32fa9526ba7ceb901
           "ZFar": 10000,
           "ZNear": 1
         },
@@ -898,8 +879,6 @@
       "Children": []
     },
     {
-<<<<<<< HEAD
-=======
       "__guid": "7e3f9a10-58b1-4a2e-9c31-bb1f2d4e6a20",
       "__version": 2,
       "Flags": 0,
@@ -1104,7 +1083,6 @@
       "Children": []
     },
     {
->>>>>>> 9aa888e851918b35d1ec4bf32fa9526ba7ceb901
       "__guid": "253ab48d-d412-4dc9-9d2e-2406d75629bf",
       "__version": 2,
       "Flags": 0,
