@@ -40,6 +40,14 @@ public abstract class EnemyBase : Component
 	// archetype's base speed + per-instance jitter.
 	public const float MaxEnemyMoveSpeed = 247f;
 
+	// --- Fall-to-ground (see DriveFallToGround) and NavMesh pathfinding (see UpdateAi) - both
+	// resolved defensively; either being missing/misbehaving just skips straight to the plain
+	// kinematic behavior this project already had. ---
+	Rigidbody _rigidbody;
+	NavMeshAgent _navAgent;
+	bool _hasLanded;
+	float _spawnStartTime;
+
 	float _spawnZ;
 	float _nextAttackReady;
 	bool _isWindingUp;
@@ -133,6 +141,18 @@ public abstract class EnemyBase : Component
 
 		CurrentHP = MaxHP;
 		_spawnZ = WorldPosition.z;
+		_spawnStartTime = Time.Now;
+
+		try { _rigidbody = Components.Get<Rigidbody>(); }
+		catch { _rigidbody = null; }
+
+		try { _navAgent = Components.Get<NavMeshAgent>(); }
+		catch { _navAgent = null; }
+
+		// No Rigidbody means nothing to fall with - treat as already landed at whatever height it
+		// spawned at (the original behavior) rather than getting stuck waiting forever.
+		if ( _rigidbody is null )
+			_hasLanded = true;
 
 		// Registered here (not OnStart) so an enemy spawned at runtime is immediately visible
 		// to HitDetector/ComputeSeparation the same frame it's created.
@@ -322,12 +342,53 @@ public abstract class EnemyBase : Component
 		if ( GameManager.Instance is not null && GameManager.Instance.State != RunState.Playing )
 			return;
 
+		// Physics owns position while falling from an elevated spawn point - don't run attacks/AI
+		// until it's actually settled on the ground.
+		if ( !_hasLanded )
+		{
+			DriveFallToGround();
+			return;
+		}
+
 		DriveAttackBoneOverrides();
 
 		if ( Time.Now < FreezeUntil )
 			return;
 
 		UpdateAi();
+	}
+
+	/// <summary>Lets the spawn-time Rigidbody (gravity on) carry the enemy down from its spawn
+	/// point/ring height to the real floor, then switches physics off and hands control back to the
+	/// normal kinematic AI movement from wherever it landed. Enemies with no Rigidbody (or one that
+	/// throws) are just treated as already-landed at spawn height - the original behavior.</summary>
+	void DriveFallToGround()
+	{
+		if ( _rigidbody is null )
+		{
+			_hasLanded = true;
+			return;
+		}
+
+		try
+		{
+			var elapsed = Time.Now - _spawnStartTime;
+			var settled = _rigidbody.Velocity.Length < 8f && elapsed > 0.15f;
+
+			// Safety net - if it's still not settled after 2s (stuck on geometry, whatever), just
+			// accept wherever it currently is rather than leaving the enemy inert forever.
+			if ( settled || elapsed > 2f )
+			{
+				_hasLanded = true;
+				_rigidbody.MotionEnabled = false;
+				_rigidbody.Gravity = false;
+				_spawnZ = WorldPosition.z;
+			}
+		}
+		catch
+		{
+			_hasLanded = true;
+		}
 	}
 
 	void UpdateAi()
@@ -375,15 +436,50 @@ public abstract class EnemyBase : Component
 			var moveDir = (dir + separation).Length > 0.01f ? (dir + separation) : dir;
 			moveDir = moveDir.Length > 0.01f ? moveDir / moveDir.Length : dir;
 
-			var newPos = WorldPosition + moveDir * MoveSpeed * Time.Delta;
-			WorldPosition = new Vector3( newPos.x, newPos.y, _spawnZ );
-			FacePoint( player.WorldPosition );
-
-			if ( AnimHelper is not null )
+			// Prefer NavMesh pathfinding (obstacle-avoiding, now that the scene has a hand-baked
+			// NavMesh) - falls straight back to the original direct-line-plus-separation movement if
+			// there's no agent on this enemy or anything about it throws.
+			var usedNavAgent = false;
+			if ( _navAgent is not null )
 			{
-				var vel = moveDir * MoveSpeed;
-				AnimHelper.WithVelocity( vel );
-				AnimHelper.WithWishVelocity( vel );
+				try
+				{
+					_navAgent.MoveTo( player.WorldPosition );
+					var agentVel = _navAgent.Velocity;
+					var agentVel2D = new Vector3( agentVel.x, agentVel.y, 0 );
+
+					if ( agentVel2D.Length > 0.01f )
+					{
+						if ( AnimHelper is not null )
+						{
+							AnimHelper.WithVelocity( agentVel );
+							AnimHelper.WithWishVelocity( agentVel );
+						}
+
+						FacePoint( player.WorldPosition );
+					}
+
+					usedNavAgent = true;
+				}
+				catch
+				{
+					usedNavAgent = false;
+				}
+			}
+
+			if ( !usedNavAgent )
+			{
+				var newPos = WorldPosition + moveDir * MoveSpeed * Time.Delta;
+				WorldPosition = new Vector3( newPos.x, newPos.y, _spawnZ );
+
+				if ( AnimHelper is not null )
+				{
+					var vel = moveDir * MoveSpeed;
+					AnimHelper.WithVelocity( vel );
+					AnimHelper.WithWishVelocity( vel );
+				}
+
+				FacePoint( player.WorldPosition );
 			}
 		}
 	}
