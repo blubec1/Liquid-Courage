@@ -389,7 +389,10 @@
 	.menu-root.visible {
 		opacity: 1;
 		pointer-events: all;
-		background-color: rgba(9,6,8,0.96);
+		/* Fully opaque (not 0.96) - the game scene behind this panel shouldn't be visible at all
+		   until Play is pressed, not even the faint sliver a slightly-transparent backdrop let
+		   through. */
+		background-color: rgba(9,6,8,1);
 	}
 
 	/* Customize screen shifts the panel to the left and shows nothing but the plain black

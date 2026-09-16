@@ -22,6 +22,11 @@ public abstract class EnemyBase : Component
 	[Property, Group( "Stats" )] public bool IsSoberingEnemy { get; set; } = false;
 	[Property, Group( "Stats" )] public float SoberingAmount { get; set; } = 18f;
 
+	// Hard floor on how close an enemy is ever allowed to get to the player, enforced every frame in
+	// UpdateAi regardless of which movement path ran - this is what stops enemies from sliding into
+	// or overlapping the player, independent of pathing quirks.
+	[Property, Group( "Stats" )] public float MinDistanceFromPlayer { get; set; } = 32f;
+
 	[Property, Group( "Time Scaling" )] public float HpRampPerSecond { get; set; } = 0.006f;
 	// Lowered from 0.004: at the old rate, a 5-minute run made every enemy hit ~2.2x harder on top
 	// of getting surrounded more often, which turned late runs into an unavoidable death spiral.
@@ -42,7 +47,15 @@ public abstract class EnemyBase : Component
 
 	// --- Fall-to-ground (see DriveFallToGround) and NavMesh pathfinding (see UpdateAi) - both
 	// resolved defensively; either being missing/misbehaving just skips straight to the plain
-	// kinematic behavior this project already had. ---
+	// kinematic behavior this project already had.
+	//
+	// NavMeshAgent-driven movement was tried once before and reverted because it pathed straight to
+	// the player's exact WorldPosition with no notion of AttackRange, sliding enemies into/through
+	// the player. This time the agent is given a standoff target (MinDistanceFromPlayer short of the
+	// player, along the enemy's current approach direction) instead of the player's exact position,
+	// and EnforceMinDistanceFromPlayer() hard-clamps the final position every frame as a safety net
+	// regardless of which movement path ran - so obstacle-avoiding pathing is restored without the
+	// clipping/overlap bug. ---
 	Rigidbody _rigidbody;
 	NavMeshAgent _navAgent;
 	bool _hasLanded;
@@ -397,6 +410,10 @@ public abstract class EnemyBase : Component
 		if ( player is null || player.IsDead )
 			return;
 
+		// Corrects any overlap left over from last frame (movement overshoot, knockback, navmesh
+		// quirks) before this frame's distance-based decisions run.
+		EnforceMinDistanceFromPlayer( player );
+
 		if ( _isWindingUp )
 		{
 			if ( Time.Now >= _windupEndTime )
@@ -436,15 +453,19 @@ public abstract class EnemyBase : Component
 			var moveDir = (dir + separation).Length > 0.01f ? (dir + separation) : dir;
 			moveDir = moveDir.Length > 0.01f ? moveDir / moveDir.Length : dir;
 
-			// Prefer NavMesh pathfinding (obstacle-avoiding, now that the scene has a hand-baked
-			// NavMesh) - falls straight back to the original direct-line-plus-separation movement if
-			// there's no agent on this enemy or anything about it throws.
+			// Prefer NavMesh pathfinding so enemies actually route around obstacles/buildings instead
+			// of phasing through them. Unlike the earlier attempt, the agent is told to stop
+			// MinDistanceFromPlayer short of the player (along the current approach direction) rather
+			// than the player's exact position - that's what was causing enemies to slide into/through
+			// the player. Falls back to plain direct-line-plus-separation movement if there's no agent
+			// on this enemy or anything about it throws.
 			var usedNavAgent = false;
 			if ( _navAgent is not null )
 			{
 				try
 				{
-					_navAgent.MoveTo( player.WorldPosition );
+					var standoffTarget = player.WorldPosition - dir * MinDistanceFromPlayer;
+					_navAgent.MoveTo( standoffTarget );
 					var agentVel = _navAgent.Velocity;
 					var agentVel2D = new Vector3( agentVel.x, agentVel.y, 0 );
 
@@ -481,7 +502,29 @@ public abstract class EnemyBase : Component
 
 				FacePoint( player.WorldPosition );
 			}
+
+			// Safety net regardless of which path just ran - never end the frame closer than
+			// MinDistanceFromPlayer, so pathing/physics overshoot can't cause visible clipping.
+			EnforceMinDistanceFromPlayer( player );
 		}
+	}
+
+	/// <summary>Hard floor on enemy-to-player distance - pushes the enemy back out along the
+	/// away-from-player direction if it's ended up closer than MinDistanceFromPlayer. Cheap and
+	/// direction-agnostic, so it works the same whether the overlap came from direct movement,
+	/// NavMeshAgent overshoot, or knockback.</summary>
+	void EnforceMinDistanceFromPlayer( PlayerStats player )
+	{
+		var toPlayer = player.WorldPosition - WorldPosition;
+		toPlayer = new Vector3( toPlayer.x, toPlayer.y, 0 );
+		var dist = toPlayer.Length;
+
+		if ( dist >= MinDistanceFromPlayer || dist < 0.01f )
+			return;
+
+		var away = -(toPlayer / dist);
+		var pushedPos = player.WorldPosition + away * MinDistanceFromPlayer;
+		WorldPosition = new Vector3( pushedPos.x, pushedPos.y, _spawnZ );
 	}
 
 	Vector3 ComputeSeparation()

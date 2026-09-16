@@ -12,10 +12,15 @@ namespace DrunkenBarFight;
 /// Each enemy gets a real Rigidbody with gravity ON at spawn, so it physically drops from wherever its
 /// spawn point/ring position sits down to the actual floor instead of freezing at the spawn marker's
 /// height (see EnemyBase.DriveFallToGround) - once it settles, physics is switched off and normal
-/// kinematic AI movement takes over from that landed height. Each enemy also gets a NavMeshAgent for
-/// obstacle-avoiding pathfinding to the player once grounded (see EnemyBase.UpdateAi) - this assumes
-/// the scene's NavMesh has already been baked by hand in the editor; if the agent is missing or
-/// throws, movement falls straight back to the original direct-line-plus-separation behavior.
+/// kinematic AI movement takes over from that landed height.
+///
+/// Each enemy also gets a NavMeshAgent so it routes around obstacles/buildings (assumes the scene's
+/// NavMesh has already been baked by hand in the editor) instead of phasing straight through them.
+/// An earlier version of this pathed the agent straight to the player's exact position, which had no
+/// notion of attack range and caused enemies to slide into/through the player - EnemyBase.UpdateAi now
+/// targets a point MinDistanceFromPlayer short of the player instead, and hard-clamps the final
+/// position every frame as a safety net. Falls back to plain direct-line-plus-separation movement if
+/// the agent is missing or throws.
 /// </summary>
 public class HordeSpawner : Component
 {
