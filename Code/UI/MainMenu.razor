@@ -284,6 +284,8 @@
 	void PlayClicked()
 	{
 		PlayerPreviewCamera.Instance?.SetActive( false );
+		PlayerPreviewCamera.Instance?.SetAsMainCamera( false );
+		PlayerPreviewRotator.Instance?.SetVisible( false );
 		_screen = MenuScreen.Root;
 		GameManager.Instance?.StartGame();
 	}
@@ -294,7 +296,11 @@
 	void GoToRoot()
 	{
 		if ( _screen == MenuScreen.Customize )
+		{
 			PlayerPreviewCamera.Instance?.SetActive( false );
+			PlayerPreviewCamera.Instance?.SetAsMainCamera( false );
+			PlayerPreviewRotator.Instance?.SetVisible( false );
+		}
 
 		_screen = MenuScreen.Root;
 	}
@@ -303,6 +309,8 @@
 	{
 		_screen = MenuScreen.Customize;
 		PlayerPreviewCamera.Instance?.SetActive( true );
+		PlayerPreviewCamera.Instance?.SetAsMainCamera( true );
+		PlayerPreviewRotator.Instance?.SetVisible( true );
 
 		// Push the already-saved outfit onto the preview stand right away - otherwise it only shows
 		// up after the first slot click, since Cycle() is what triggers ApplyToLivePlayerIfPresent
@@ -381,7 +389,10 @@
 	.menu-root.visible {
 		opacity: 1;
 		pointer-events: all;
-		background-color: rgba(9,6,8,0.96);
+		/* Fully opaque (not 0.96) - the game scene behind this panel shouldn't be visible at all
+		   until Play is pressed, not even the faint sliver a slightly-transparent backdrop let
+		   through. */
+		background-color: rgba(9,6,8,1);
 	}
 
 	/* Customize screen shifts the panel to the left and shows nothing but the plain black
@@ -393,7 +404,7 @@
 	}
 
 	.menu-root.customize-mode.visible {
-		background-color: rgba(9,6,8,0.96);
+		background-color: rgba(9,6,8,0.0);
 	}
 
 	.glow {

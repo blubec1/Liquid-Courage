@@ -46,6 +46,12 @@ public class PlayerPreviewRotator : Component
 		_manualOffset += degrees;
 	}
 
+	public void SetVisible( bool visible )
+	{
+		if ( BodyRenderer is not null )
+			BodyRenderer.Enabled = visible;
+	}
+
 	protected override void OnDestroy()
 	{
 		if ( Instance == this )
