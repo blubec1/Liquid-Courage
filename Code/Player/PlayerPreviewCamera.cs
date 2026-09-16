@@ -39,6 +39,15 @@ public class PlayerPreviewCamera : Component
 			_camera.Enabled = active;
 	}
 
+	public void SetAsMainCamera( bool main )
+	{
+		if ( _camera is null )
+			_camera = Components.Get<CameraComponent>();
+
+		if ( _camera is not null )
+			_camera.IsMainCamera = main;
+	}
+
 	protected override void OnDestroy()
 	{
 		if ( Instance == this )
