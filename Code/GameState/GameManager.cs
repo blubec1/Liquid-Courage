@@ -44,6 +44,10 @@ public class GameManager : Component
 	{
 		Instance = this;
 
+		// Must happen on every fresh Play session, not just StartGame/RestartRun - see
+		// GameEvents.ResetHitStop's doc comment for why a bare static field needs this at all.
+		GameEvents.ResetHitStop();
+
 		var player = Scene.GetAllComponents<PlayerMovement>().FirstOrDefault();
 		if ( player is not null )
 		{
@@ -71,11 +75,11 @@ public class GameManager : Component
 				RestartRun();
 		}
 
-		// Escape toggles pause mid-run. Read raw/unrebindable (same pattern as the M/N drunkenness
+		// Tab toggles pause mid-run. Read raw/unrebindable (same pattern as the M/N drunkenness
 		// cheat keys) rather than through Input.config, since this shouldn't be rebindable.
 		try
 		{
-			if ( Sandbox.Input.Keyboard.Pressed( "Escape" ) && (State == RunState.Playing || State == RunState.Paused) )
+			if ( Sandbox.Input.Keyboard.Pressed( "Tab" ) && (State == RunState.Playing || State == RunState.Paused) )
 				TogglePause();
 		}
 		catch { }
@@ -98,7 +102,7 @@ public class GameManager : Component
 		GameEvents.RaiseRunStarted();
 	}
 
-	/// <summary>Called by Escape mid-run (or the pause menu's Resume button). Flips Playing &harr; Paused.</summary>
+	/// <summary>Called by Tab mid-run (or the pause menu's Resume button). Flips Playing &harr; Paused.</summary>
 	public void TogglePause()
 	{
 		if ( State == RunState.Playing )

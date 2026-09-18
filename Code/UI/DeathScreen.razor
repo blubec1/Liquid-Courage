@@ -21,6 +21,7 @@
 			</div>
 
 			<div class="play-again-button" onclick="@RestartClicked">@RestartLabel</div>
+			<div class="main-menu-button" onclick="@MainMenuClicked">@MainMenuLabel</div>
 		</div>
 	</div>
 </root>
@@ -61,6 +62,7 @@
 	}
 
 	public string RestartLabel => (GameManager.Instance?.CanRestartYet ?? false) ? "PLAY AGAIN" : "...";
+	public string MainMenuLabel => (GameManager.Instance?.CanRestartYet ?? false) ? "MAIN MENU" : "...";
 
 	static string FormatTime( float seconds )
 	{
@@ -71,8 +73,22 @@
 
 	void RestartClicked()
 	{
-		if ( GameManager.Instance?.CanRestartYet == true )
-			GameManager.Instance.RestartRun();
+		if ( GameManager.Instance?.CanRestartYet != true )
+			return;
+
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		GameManager.Instance.RestartRun();
+	}
+
+	// Same short delay-gate as Play Again above - stops a button-mash right at the moment of death
+	// from accidentally bailing out to the main menu before the player even sees their stats.
+	void MainMenuClicked()
+	{
+		if ( GameManager.Instance?.CanRestartYet != true )
+			return;
+
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		GameManager.Instance.QuitToMenu();
 	}
 
 	// Same reason as Hud.razor - without this, the panel never notices the run ended and
@@ -174,5 +190,22 @@
 
 	.play-again-button:hover {
 		background-color: #ff4550;
+	}
+
+	.main-menu-button {
+		background-color: rgba(255,255,255,0.08);
+		color: rgba(255,255,255,0.75);
+		font-weight: 800;
+		font-size: 13px;
+		letter-spacing: 2px;
+		padding: 10px 0;
+		border-radius: 6px;
+		cursor: pointer;
+		margin-top: 10px;
+	}
+
+	.main-menu-button:hover {
+		background-color: rgba(255,255,255,0.16);
+		color: white;
 	}
 </style>

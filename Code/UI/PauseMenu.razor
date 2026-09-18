@@ -38,7 +38,7 @@
 					<div class="control-row"><div class="key">RMB</div><div class="desc">Heavy Attack</div></div>
 					<div class="control-row"><div class="key">E</div><div class="desc">Leg Sweep (90&deg; arc)</div></div>
 					<div class="control-row"><div class="key">G</div><div class="desc">Throw Bottle</div></div>
-					<div class="control-row"><div class="key">Esc</div><div class="desc">Pause</div></div>
+					<div class="control-row"><div class="key">Tab</div><div class="desc">Pause</div></div>
 				</div>
 
 				<div class="nav-button back" onclick="@GoToRoot">BACK</div>
@@ -109,27 +109,64 @@
 	public float ResumeGlowAlpha => 0.22f + MathF.Sin( Time.Now * 2.2f ) * 0.16f;
 	public float ResumeGlowSize => 14f + MathF.Sin( Time.Now * 2.2f ) * 7f;
 
+	// Every button on this screen plays the same UI click cue as the first line of its handler -
+	// simplest, lowest-risk way to cover every onclick in this file without introducing an
+	// unproven inline-lambda-in-markup pattern this codebase has no precedent for.
 	void ResumeClicked()
 	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
 		_screen = MenuScreen.Root;
 		GameManager.Instance?.TogglePause();
 	}
 
 	void QuitClicked()
 	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
 		_screen = MenuScreen.Root;
 		GameManager.Instance?.QuitToMenu();
 	}
 
-	void GoToHowToPlay() => _screen = MenuScreen.HowToPlay;
-	void GoToSettings() => _screen = MenuScreen.Settings;
-	void GoToRoot() => _screen = MenuScreen.Root;
+	void GoToHowToPlay()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		_screen = MenuScreen.HowToPlay;
+	}
 
-	void VolumeDown() => Settings.SetMasterVolume( Settings.MasterVolume - 0.1f );
-	void VolumeUp() => Settings.SetMasterVolume( Settings.MasterVolume + 0.1f );
+	void GoToSettings()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		_screen = MenuScreen.Settings;
+	}
 
-	void CycleResolution() => Settings.CycleResolution();
-	void ToggleFullscreen() => Settings.SetFullscreen( !Settings.Fullscreen );
+	void GoToRoot()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		_screen = MenuScreen.Root;
+	}
+
+	void VolumeDown()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.SetMasterVolume( Settings.MasterVolume - 0.1f );
+	}
+
+	void VolumeUp()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.SetMasterVolume( Settings.MasterVolume + 0.1f );
+	}
+
+	void CycleResolution()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.CycleResolution();
+	}
+
+	void ToggleFullscreen()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.SetFullscreen( !Settings.Fullscreen );
+	}
 
 	// Time bucket forces ~12Hz rebuilds while paused so the glow/pulse inline styles above actually
 	// animate - see MainMenu.razor's BuildHash for the same technique and its reasoning.

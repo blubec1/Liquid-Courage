@@ -129,7 +129,7 @@
 					<div class="control-row"><div class="key">RMB</div><div class="desc">Heavy Attack</div></div>
 					<div class="control-row"><div class="key">E</div><div class="desc">Leg Sweep (90&deg; arc)</div></div>
 					<div class="control-row"><div class="key">G</div><div class="desc">Throw Bottle</div></div>
-					<div class="control-row"><div class="key">Esc</div><div class="desc">Pause</div></div>
+					<div class="control-row"><div class="key">Tab</div><div class="desc">Pause</div></div>
 				</div>
 
 				<div class="tip">Land hits to build your combo. Beat enemies to fill the drink meter -
@@ -281,8 +281,12 @@
 		}
 	}
 
+	// Every button on this screen plays the same UI click cue as the first line of its handler -
+	// simplest, lowest-risk way to cover every onclick in this file without introducing an
+	// unproven inline-lambda-in-markup pattern this codebase has no precedent for.
 	void PlayClicked()
 	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
 		PlayerPreviewCamera.Instance?.SetActive( false );
 		PlayerPreviewCamera.Instance?.SetAsMainCamera( false );
 		PlayerPreviewRotator.Instance?.SetVisible( false );
@@ -290,11 +294,22 @@
 		GameManager.Instance?.StartGame();
 	}
 
-	void GoToHowToPlay() => _screen = MenuScreen.HowToPlay;
-	void GoToSettings() => _screen = MenuScreen.Settings;
+	void GoToHowToPlay()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		_screen = MenuScreen.HowToPlay;
+	}
+
+	void GoToSettings()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		_screen = MenuScreen.Settings;
+	}
 
 	void GoToRoot()
 	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+
 		if ( _screen == MenuScreen.Customize )
 		{
 			PlayerPreviewCamera.Instance?.SetActive( false );
@@ -307,6 +322,7 @@
 
 	void GoToCustomize()
 	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
 		_screen = MenuScreen.Customize;
 		PlayerPreviewCamera.Instance?.SetActive( true );
 		PlayerPreviewCamera.Instance?.SetAsMainCamera( true );
@@ -330,32 +346,43 @@
 	string HeadLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Head ) ?? "None";
 	string AccessoryLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Accessory ) ?? "None";
 
-	void SkinPrev() => Outfit.CyclePrev( PlayerOutfit.Slot.Skin );
-	void SkinNext() => Outfit.CycleNext( PlayerOutfit.Slot.Skin );
-	void TopPrev() => Outfit.CyclePrev( PlayerOutfit.Slot.Top );
-	void TopNext() => Outfit.CycleNext( PlayerOutfit.Slot.Top );
-	void BottomPrev() => Outfit.CyclePrev( PlayerOutfit.Slot.Bottom );
-	void BottomNext() => Outfit.CycleNext( PlayerOutfit.Slot.Bottom );
-	void ShoesPrev() => Outfit.CyclePrev( PlayerOutfit.Slot.Shoes );
-	void ShoesNext() => Outfit.CycleNext( PlayerOutfit.Slot.Shoes );
-	void HeadPrev() => Outfit.CyclePrev( PlayerOutfit.Slot.Head );
-	void HeadNext() => Outfit.CycleNext( PlayerOutfit.Slot.Head );
-	void AccessoryPrev() => Outfit.CyclePrev( PlayerOutfit.Slot.Accessory );
-	void AccessoryNext() => Outfit.CycleNext( PlayerOutfit.Slot.Accessory );
+	void SkinPrev() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CyclePrev( PlayerOutfit.Slot.Skin ); }
+	void SkinNext() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CycleNext( PlayerOutfit.Slot.Skin ); }
+	void TopPrev() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CyclePrev( PlayerOutfit.Slot.Top ); }
+	void TopNext() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CycleNext( PlayerOutfit.Slot.Top ); }
+	void BottomPrev() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CyclePrev( PlayerOutfit.Slot.Bottom ); }
+	void BottomNext() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CycleNext( PlayerOutfit.Slot.Bottom ); }
+	void ShoesPrev() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CyclePrev( PlayerOutfit.Slot.Shoes ); }
+	void ShoesNext() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CycleNext( PlayerOutfit.Slot.Shoes ); }
+	void HeadPrev() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CyclePrev( PlayerOutfit.Slot.Head ); }
+	void HeadNext() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CycleNext( PlayerOutfit.Slot.Head ); }
+	void AccessoryPrev() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CyclePrev( PlayerOutfit.Slot.Accessory ); }
+	void AccessoryNext() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CycleNext( PlayerOutfit.Slot.Accessory ); }
 
-	void RotateLeft() => PlayerPreviewRotator.Instance?.Nudge( -30f );
-	void RotateRight() => PlayerPreviewRotator.Instance?.Nudge( 30f );
+	void RotateLeft() { GameSettings.PlaySound( "sounds/ui/click.sound" ); PlayerPreviewRotator.Instance?.Nudge( -30f ); }
+	void RotateRight() { GameSettings.PlaySound( "sounds/ui/click.sound" ); PlayerPreviewRotator.Instance?.Nudge( 30f ); }
 
-	void VolumeDown() => Settings.SetMasterVolume( Settings.MasterVolume - 0.1f );
-	void VolumeUp() => Settings.SetMasterVolume( Settings.MasterVolume + 0.1f );
+	void VolumeDown()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.SetMasterVolume( Settings.MasterVolume - 0.1f );
+	}
+
+	void VolumeUp()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.SetMasterVolume( Settings.MasterVolume + 0.1f );
+	}
 
 	void CycleResolution()
 	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
 		Settings.CycleResolution();
 	}
 
 	void ToggleFullscreen()
 	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
 		Settings.SetFullscreen( !Settings.Fullscreen );
 	}
 

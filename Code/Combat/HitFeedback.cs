@@ -8,7 +8,11 @@ namespace DrunkenBarFight;
 /// </summary>
 public static class HitFeedback
 {
-	public static void PlayAttackImpact( float impactStrength, int hitCount )
+	/// <summary>soundOverride lets a specific attack force its own impact cue instead of picking one
+	/// off the impactStrength thresholds below - used by Kick, which wants the light-punch sound
+	/// even though its ImpactStrength (0.4, for shake/hitstop feel) would otherwise land it in the
+	/// "medium" bucket.</summary>
+	public static void PlayAttackImpact( float impactStrength, int hitCount, string soundOverride = null )
 	{
 		if ( hitCount <= 0 )
 			return;
@@ -18,7 +22,10 @@ public static class HitFeedback
 		GameEvents.RaiseShakeRequested( shakeAmount, shakeDuration );
 		GameEvents.RaiseHitStopRequested( impactStrength * 0.1f );
 
-		PlayImpactSound( impactStrength );
+		if ( !string.IsNullOrEmpty( soundOverride ) )
+			GameSettings.PlaySound( soundOverride );
+		else
+			PlayImpactSound( impactStrength );
 	}
 
 	public static void PlayFinisherImpact( float impactStrength, int hitCount )
@@ -44,11 +51,11 @@ public static class HitFeedback
 		var shakeDuration = 0.12f + severity01 * 0.18f;
 		GameEvents.RaiseShakeRequested( shakeAmount, shakeDuration );
 
-		// Dedicated "getting hit" cue, separate from the sounds played when the PLAYER lands a hit
-		// (PlayImpactSound below) - a beefier low thump so incoming damage reads as a real impact
-		// instead of just the HP bar ticking down. Routed through GameSettings.PlaySound (not raw
-		// Sound.Play) so it respects the master volume slider like every other cue should.
-		GameSettings.PlaySound( severity01 >= 0.12f ? "sounds/combat/player_hurt_heavy.sound" : "sounds/combat/player_hurt_light.sound" );
+		// One shared "getting hit" cue regardless of severity (previously split into light/heavy
+		// variants, but only one clip exists) - separate from the sounds played when the PLAYER lands
+		// a hit (PlayImpactSound below). Routed through GameSettings.PlaySound (not raw Sound.Play) so
+		// it respects the master volume slider like every other cue should.
+		GameSettings.PlaySound( "sounds/combat/player_hurt.sound" );
 	}
 
 	static void PlayImpactSound( float impactStrength )

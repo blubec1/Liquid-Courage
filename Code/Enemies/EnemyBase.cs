@@ -83,6 +83,15 @@ public abstract class EnemyBase : Component
 	// own velocity internally so this is only needed on the fallback path.
 	Vector3 _smoothedMoveDir;
 	bool _pendingWasFinisher;
+
+	// --- Hit-flash state (mirrors PlayerAnimationDriver.FlashHit) - a quick tint pulse on the body
+	// so getting hit reads clearly on the ENEMY itself, independent of the knockback force pushing
+	// it around. Without this, a hit only ever showed up as movement (the knockback slide) plus a
+	// small VFX burst at the hit point - nothing about the enemy's own body said "you got hit". ---
+	const float HitFlashDuration = 0.18f;
+	float _hitFlashStartTime = -999f;
+	Color _bodyBaseTint = Color.White;
+	bool _hasCapturedBaseTint;
 	bool _pendingWasEnvironmental;
 	float _deathStartTime = -1f;
 
@@ -343,6 +352,37 @@ public abstract class EnemyBase : Component
 		return t * t * (3f - 2f * t);
 	}
 
+	/// <summary>Quick red/white tint pulse on the body the instant a hit lands - see the field
+	/// comment above. Mirrors PlayerAnimationDriver.FlashHit/DriveHitFlash exactly, just kept as a
+	/// separate copy since EnemyBase and PlayerAnimationDriver aren't related types.</summary>
+	void DriveHitFlash()
+	{
+		if ( BodyRenderer is null )
+			return;
+
+		try
+		{
+			if ( !_hasCapturedBaseTint )
+			{
+				_bodyBaseTint = BodyRenderer.Tint;
+				_hasCapturedBaseTint = true;
+			}
+
+			var t = System.Math.Clamp( (Time.Now - _hitFlashStartTime) / HitFlashDuration, 0f, 1f );
+			if ( t >= 1f )
+			{
+				BodyRenderer.Tint = _bodyBaseTint;
+				return;
+			}
+
+			// Fast in, fast out - a sharp pulse rather than a slow fade, so it reads as "impact"
+			// instead of a status effect.
+			var pulse = 1f - t;
+			BodyRenderer.Tint = Color.Lerp( _bodyBaseTint, new Color( 1f, 0.25f, 0.25f ), pulse );
+		}
+		catch { }
+	}
+
 	protected override void OnUpdate()
 	{
 		if ( IsDead )
@@ -362,11 +402,35 @@ public abstract class EnemyBase : Component
 			_knockbackVelocity = Vector3.Lerp( _knockbackVelocity, Vector3.Zero, System.Math.Clamp( Time.Delta * 9f, 0f, 1f ) );
 		}
 
+		// Same reasoning as the knockback slide above - always plays, even mid-stagger/pause, so the
+		// flash reliably reads on every hit regardless of what else is going on.
+		DriveHitFlash();
+
 		if ( AnimHelper is not null )
 		{
 			AnimHelper.WithVelocity( _knockbackVelocity );
 			AnimHelper.WithWishVelocity( _knockbackVelocity );
 			AnimHelper.IsGrounded = true;
+		}
+
+		// NavMeshAgent drives the GameObject toward its last MoveTo target every engine tick entirely
+		// on its own, independent of whether this script calls MoveTo again (first found with the
+		// pause bug - it kept walking through a paused game). The same problem was silently undoing
+		// the knockback slide above: UpdateAi stops re-issuing MoveTo while staggered, but the agent
+		// just kept steering back toward the LAST target it was given (right next to the player)
+		// instead of standing still, fighting the manual knockback repositioning almost as fast as it
+		// applied - which is why a kicked enemy never visibly went anywhere. Disabling the component
+		// (a per-GameObject NavMeshAgent instance, not the scene-wide NavMesh system this project has
+		// otherwise been deliberately careful never to touch from code) any time something else is
+		// meant to own this enemy's position - paused, staggered, or actively sliding from knockback -
+		// and handing it back only once none of those apply, fixes both symptoms with one gate.
+		var wantsNavAgentActive = (GameManager.Instance is null || GameManager.Instance.State == RunState.Playing)
+			&& Time.Now >= FreezeUntil
+			&& _knockbackVelocity.Length <= 1f;
+
+		if ( _navAgent is not null && _navAgent.Enabled != wantsNavAgentActive )
+		{
+			try { _navAgent.Enabled = wantsNavAgentActive; } catch { }
 		}
 
 		if ( GameManager.Instance is not null && GameManager.Instance.State != RunState.Playing )
@@ -620,6 +684,7 @@ public abstract class EnemyBase : Component
 		CurrentHP -= damage;
 		FreezeUntil = System.MathF.Max( FreezeUntil, Time.Now + staggerTime );
 		_knockbackVelocity += knockback;
+		_hitFlashStartTime = Time.Now;
 		_pendingWasFinisher |= fromFinisher;
 		_pendingWasEnvironmental |= fromEnvironmental;
 
