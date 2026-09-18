@@ -14,7 +14,7 @@ public abstract class EnemyBase : Component
 	public static readonly List<EnemyBase> All = new();
 
 	[Property, Group( "Stats" )] public float MaxHP { get; set; } = 30f;
-	[Property, Group( "Stats" )] public float MoveSpeed { get; set; } = 140f;
+	[Property, Group( "Stats" )] public float MoveSpeed { get; set; } = 110f;
 	[Property, Group( "Stats" )] public float Damage { get; set; } = 6f;
 	[Property, Group( "Stats" )] public float AttackRange { get; set; } = 55f;
 	[Property, Group( "Stats" )] public float AttackCooldown { get; set; } = 1.2f;
@@ -25,7 +25,17 @@ public abstract class EnemyBase : Component
 	// Hard floor on how close an enemy is ever allowed to get to the player, enforced every frame in
 	// UpdateAi regardless of which movement path ran - this is what stops enemies from sliding into
 	// or overlapping the player, independent of pathing quirks.
-	[Property, Group( "Stats" )] public float MinDistanceFromPlayer { get; set; } = 32f;
+	// Bumped from 32: the player's own CharacterController.Radius is 16, and the citizen model's
+	// collision hull is considerably wider than a point, so 32 left barely any real clearance -
+	// enemies could still visually overlap/snag the player's capsule while "respecting" the old
+	// minimum. 50 gives enough room that the two collision volumes don't actually touch.
+	[Property, Group( "Stats" )] public float MinDistanceFromPlayer { get; set; } = 50f;
+
+	// Capped by this archetype's own AttackRange (EnemySoberingBartender's is only 45) - otherwise a
+	// short-ranged archetype could get permanently held outside its own attack range by the standoff
+	// clamp above and never be able to land a hit at all. Correctness (being able to attack) wins over
+	// the spacing preference for any archetype whose range is tighter than the base standoff.
+	float EffectiveMinDistance => System.MathF.Min( MinDistanceFromPlayer, AttackRange * 0.8f );
 
 	[Property, Group( "Time Scaling" )] public float HpRampPerSecond { get; set; } = 0.006f;
 	// Lowered from 0.004: at the old rate, a 5-minute run made every enemy hit ~2.2x harder on top
@@ -39,11 +49,11 @@ public abstract class EnemyBase : Component
 	public bool IsDead { get; private set; }
 	public float FreezeUntil { get; private set; }
 
-	// Fastest any enemy is ever allowed to move - the player's own BaseMoveSpeed (260, see
-	// PlayerMovement) times 0.95, so the quickest archetype is always exactly 5% slower than the
-	// player and nothing can ever out-run them. Applied as a clamp in OnAwake after each
-	// archetype's base speed + per-instance jitter.
-	public const float MaxEnemyMoveSpeed = 247f;
+	// Fastest any enemy is ever allowed to move - lowered well below the player's own BaseMoveSpeed
+	// (260, see PlayerMovement) so the whole horde reads as noticeably slower than the player, not
+	// just barely-slower. Applied as a clamp in OnAwake after each archetype's base speed +
+	// per-instance jitter.
+	public const float MaxEnemyMoveSpeed = 210f;
 
 	// --- Fall-to-ground (see DriveFallToGround) and NavMesh pathfinding (see UpdateAi) - both
 	// resolved defensively; either being missing/misbehaving just skips straight to the plain
@@ -66,6 +76,12 @@ public abstract class EnemyBase : Component
 	bool _isWindingUp;
 	float _windupEndTime;
 	Vector3 _knockbackVelocity;
+	// Smoothed heading for the non-NavMesh movement fallback (see UpdateAi) - without this, moveDir
+	// is recomputed fresh every frame straight from raw direction-to-player + separation, so it can
+	// flip a few degrees frame-to-frame as separation forces shift, reading as a twitchy/robotic
+	// wobble instead of a real character turning with some inertia. NavMeshAgent already smooths its
+	// own velocity internally so this is only needed on the fallback path.
+	Vector3 _smoothedMoveDir;
 	bool _pendingWasFinisher;
 	bool _pendingWasEnvironmental;
 	float _deathStartTime = -1f;
@@ -139,10 +155,11 @@ public abstract class EnemyBase : Component
 	{
 		SetDefaults();
 
-		// Small per-instance speed variation (+/-8%ish) so a crowd of the same archetype doesn't
-		// all move in perfect lockstep, then hard-clamped to MaxEnemyMoveSpeed so no amount of
-		// jitter can ever let an enemy out-run the player.
-		MoveSpeed *= 0.9f + System.Random.Shared.NextSingle() * 0.16f;
+		// Per-instance speed variation so a crowd of the same archetype doesn't all move in perfect
+		// lockstep - widened again from +/-25% (0.75-1.25) to +/-40% (0.6-1.4), so a pack has real
+		// stragglers and real front-runners instead of just a mild wobble. Still hard-clamped to
+		// MaxEnemyMoveSpeed so no amount of jitter can ever let an enemy out-run the player.
+		MoveSpeed *= 0.6f + System.Random.Shared.NextSingle() * 0.8f;
 		MoveSpeed = System.MathF.Min( MoveSpeed, MaxEnemyMoveSpeed );
 
 		// Per-instance attack-timing jitter (+/-15% cooldown, plus a randomized first-attack timer)
@@ -464,7 +481,7 @@ public abstract class EnemyBase : Component
 			{
 				try
 				{
-					var standoffTarget = player.WorldPosition - dir * MinDistanceFromPlayer;
+					var standoffTarget = player.WorldPosition - dir * EffectiveMinDistance;
 					_navAgent.MoveTo( standoffTarget );
 					var agentVel = _navAgent.Velocity;
 					var agentVel2D = new Vector3( agentVel.x, agentVel.y, 0 );
@@ -490,12 +507,19 @@ public abstract class EnemyBase : Component
 
 			if ( !usedNavAgent )
 			{
-				var newPos = WorldPosition + moveDir * MoveSpeed * Time.Delta;
+				// Smooth the heading rather than snapping straight to this frame's raw direction - see
+				// _smoothedMoveDir's field comment. Speed itself is untouched (MoveSpeed is applied
+				// after), only the direction eases toward the target.
+				_smoothedMoveDir = _smoothedMoveDir.Length > 0.01f
+					? Vector3.Lerp( _smoothedMoveDir, moveDir, System.Math.Clamp( Time.Delta * 8f, 0f, 1f ) )
+					: moveDir;
+
+				var newPos = WorldPosition + _smoothedMoveDir * MoveSpeed * Time.Delta;
 				WorldPosition = new Vector3( newPos.x, newPos.y, _spawnZ );
 
 				if ( AnimHelper is not null )
 				{
-					var vel = moveDir * MoveSpeed;
+					var vel = _smoothedMoveDir * MoveSpeed;
 					AnimHelper.WithVelocity( vel );
 					AnimHelper.WithWishVelocity( vel );
 				}
@@ -510,7 +534,7 @@ public abstract class EnemyBase : Component
 	}
 
 	/// <summary>Hard floor on enemy-to-player distance - pushes the enemy back out along the
-	/// away-from-player direction if it's ended up closer than MinDistanceFromPlayer. Cheap and
+	/// away-from-player direction if it's ended up closer than EffectiveMinDistance. Cheap and
 	/// direction-agnostic, so it works the same whether the overlap came from direct movement,
 	/// NavMeshAgent overshoot, or knockback.</summary>
 	void EnforceMinDistanceFromPlayer( PlayerStats player )
@@ -518,13 +542,20 @@ public abstract class EnemyBase : Component
 		var toPlayer = player.WorldPosition - WorldPosition;
 		toPlayer = new Vector3( toPlayer.x, toPlayer.y, 0 );
 		var dist = toPlayer.Length;
+		var minDist = EffectiveMinDistance;
 
-		if ( dist >= MinDistanceFromPlayer || dist < 0.01f )
+		if ( dist >= minDist || dist < 0.01f )
 			return;
 
 		var away = -(toPlayer / dist);
-		var pushedPos = player.WorldPosition + away * MinDistanceFromPlayer;
-		WorldPosition = new Vector3( pushedPos.x, pushedPos.y, _spawnZ );
+		var pushedPos = player.WorldPosition + away * minDist;
+
+		// Softly correct toward the resolved position instead of teleporting straight to it - an
+		// instant snap read as a visible pop/stutter whenever a crowd jostled an enemy into the
+		// player. The correction rate (20/sec) still resolves within a frame or two, so it doesn't
+		// reopen the overlap/clipping bug this safety net exists to prevent.
+		var corrected = Vector3.Lerp( WorldPosition, pushedPos, System.Math.Clamp( Time.Delta * 20f, 0f, 1f ) );
+		WorldPosition = new Vector3( corrected.x, corrected.y, _spawnZ );
 	}
 
 	Vector3 ComputeSeparation()
@@ -538,8 +569,12 @@ public abstract class EnemyBase : Component
 			var away = WorldPosition - other.WorldPosition;
 			away = new Vector3( away.x, away.y, 0 );
 			var d = away.Length;
-			if ( d > 0.01f && d < 40f )
-				push += (away / d) * (40f - d) * 0.05f;
+			// Radius/strength both bumped - the old values were weak enough that a cluster of enemies
+			// would happily overlap each other and pile into the same spot next to the player instead
+			// of spreading out, which read as "stuck"/rubber-banding when several were pressed up
+			// against the player at once.
+			if ( d > 0.01f && d < 55f )
+				push += (away / d) * (55f - d) * 0.09f;
 		}
 		return push;
 	}
@@ -634,6 +669,12 @@ public abstract class EnemyBase : Component
 			// project auto-wires (AnimHelper -> renderer, etc.).
 			Components.Create<Sandbox.ModelPhysics>();
 
+			// Tag the whole ragdoll hierarchy (root + every per-bone physics body ModelPhysics just
+			// created under it) so the player's CharacterController.IgnoreLayers ("ragdoll") skips it
+			// entirely - this is what was causing the player to physically snag on dead bodies.
+			try { TagRecursive( GameObject, "ragdoll" ); }
+			catch { }
+
 			// Give the knockback some starting momentum to carry into the fall, heavily damped -
 			// see the constants' comment above.
 			var rigidbody = Components.Get<Rigidbody>();
@@ -670,8 +711,13 @@ public abstract class EnemyBase : Component
 	{
 		var elapsed = Time.Now - _deathStartTime;
 
-		// Ragdoll physics (or nothing, if it failed to activate) fully owns position/rotation
-		// during this window - the body is never manually flipped or posed from code.
+		// Ragdoll physics (or nothing, if it failed to activate) fully owns position/rotation for the
+		// entire hold+fade window, all the way to despawn - it should stay a real ragdoll the whole
+		// time, never manually flipped, posed, or detached from code. (A previous version disabled
+		// ModelPhysics and called ClearPhysicsBones once the fade began, meaning to stop it being a
+		// physical obstacle - instead it snapped the body back to its bind/default pose mid-fade,
+		// which looked broken. Reverted: the player already ignores ragdolls entirely via
+		// CharacterController.IgnoreLayers, which is the fix that actually matters here.)
 		if ( elapsed <= RagdollHoldDuration )
 			return;
 
@@ -682,5 +728,17 @@ public abstract class EnemyBase : Component
 
 		if ( fadeT >= 1f )
 			GameObject.Destroy();
+	}
+
+	/// <summary>Adds a tag to a GameObject and every descendant (recursively) - used to mark the whole
+	/// ragdoll hierarchy ModelPhysics creates under an enemy at death, since the player's
+	/// CharacterController.IgnoreLayers works off Tags and there's no guarantee those per-bone bodies
+	/// inherit a tag set only on the root.</summary>
+	static void TagRecursive( GameObject go, string tag )
+	{
+		go.Tags.Add( tag );
+
+		foreach ( var child in go.Children )
+			TagRecursive( child, tag );
 	}
 }

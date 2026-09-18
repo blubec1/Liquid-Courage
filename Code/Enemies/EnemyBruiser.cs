@@ -10,8 +10,9 @@ public class EnemyBruiser : EnemyBase
 	{
 		MaxHP = 95f;
 		// Slowest archetype but still a real threat, not a crawl - its telegraphed windup is what
-		// makes it fair, not a snail's pace.
-		MoveSpeed = 165f;
+		// makes it fair, not a snail's pace. Lowered along with the rest of the horde's general
+		// slowdown pass.
+		MoveSpeed = 130f;
 		Damage = 16f;
 		AttackRange = 78f;
 		AttackCooldown = 2.2f;

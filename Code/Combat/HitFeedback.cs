@@ -28,31 +28,36 @@ public static class HitFeedback
 		GameEvents.RaiseShakeRequested( shakeAmount, shakeDuration );
 		GameEvents.RaiseHitStopRequested( 0.18f );
 
-		Sound.Play( "sounds/combat/finisher_impact.sound" );
+		GameSettings.PlaySound( "sounds/combat/finisher_impact.sound" );
 	}
 
 	/// <summary>The player's own "ouch" feedback - shake plus a hurt sound, scaled by how big a
 	/// chunk of max HP the hit took (0-1). Kept separate from PlayAttackImpact/PlayFinisherImpact
-	/// since this is feedback for damage taken, not damage dealt.</summary>
+	/// since this is feedback for damage taken, not damage dealt.
+	///
+	/// Bumped from 4/16 (amount) and 0.1/0.16 (duration) - the old floor was so low that small chip
+	/// hits (the common case when surrounded) barely registered. Still meant to read as a "slight"
+	/// jolt, not a disorienting wallop - PlayFinisherImpact above is deliberately the bigger one.</summary>
 	public static void PlayPlayerHurt( float severity01 )
 	{
-		var shakeAmount = 4f + severity01 * 16f;
-		var shakeDuration = 0.1f + severity01 * 0.16f;
+		var shakeAmount = 6f + severity01 * 18f;
+		var shakeDuration = 0.12f + severity01 * 0.18f;
 		GameEvents.RaiseShakeRequested( shakeAmount, shakeDuration );
 
-		if ( severity01 >= 0.12f )
-			Sound.Play( "sounds/combat/heavy_impact.sound" );
-		else
-			Sound.Play( "sounds/combat/light_impact.sound" );
+		// Dedicated "getting hit" cue, separate from the sounds played when the PLAYER lands a hit
+		// (PlayImpactSound below) - a beefier low thump so incoming damage reads as a real impact
+		// instead of just the HP bar ticking down. Routed through GameSettings.PlaySound (not raw
+		// Sound.Play) so it respects the master volume slider like every other cue should.
+		GameSettings.PlaySound( severity01 >= 0.12f ? "sounds/combat/player_hurt_heavy.sound" : "sounds/combat/player_hurt_light.sound" );
 	}
 
 	static void PlayImpactSound( float impactStrength )
 	{
 		if ( impactStrength >= 0.75f )
-			Sound.Play( "sounds/combat/heavy_impact.sound" );
+			GameSettings.PlaySound( "sounds/combat/heavy_impact.sound" );
 		else if ( impactStrength >= 0.4f )
-			Sound.Play( "sounds/combat/medium_impact.sound" );
+			GameSettings.PlaySound( "sounds/combat/medium_impact.sound" );
 		else
-			Sound.Play( "sounds/combat/light_impact.sound" );
+			GameSettings.PlaySound( "sounds/combat/light_impact.sound" );
 	}
 }

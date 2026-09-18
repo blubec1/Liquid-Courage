@@ -6,9 +6,9 @@ public class EnemyBrawler : EnemyBase
 	protected override void SetDefaults()
 	{
 		MaxHP = 30f;
-		// Fastest of the three - lands right at the 5%-slower-than-player cap after OnAwake's
-		// jitter+clamp (see EnemyBase.MaxEnemyMoveSpeed).
-		MoveSpeed = 235f;
+		// Fastest of the three, but still well below the player and the lowered MaxEnemyMoveSpeed
+		// cap (see EnemyBase) - the whole horde got a general slowdown pass.
+		MoveSpeed = 190f;
 		Damage = 6f;
 		AttackRange = 55f;
 		AttackCooldown = 1.2f;

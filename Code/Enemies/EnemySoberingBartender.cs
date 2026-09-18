@@ -9,8 +9,9 @@ public class EnemySoberingBartender : EnemyBase
 	protected override void SetDefaults()
 	{
 		MaxHP = 20f;
-		// Middle of the pack - brisk enough to force a real decision about prioritizing it.
-		MoveSpeed = 205f;
+		// Middle of the pack - brisk enough to force a real decision about prioritizing it. Lowered
+		// along with the rest of the horde's general slowdown pass.
+		MoveSpeed = 165f;
 		Damage = 4f;
 		AttackRange = 45f;
 		AttackCooldown = 1.4f;
