@@ -569,8 +569,10 @@ public abstract class EnemyBase : Component
 			player.TakeDamage( Damage );
 	}
 
-	/// <summary>Called by combat code when this enemy is hit by an attack or finisher.</summary>
-	public void ApplyHit( float damage, Vector3 knockback, float staggerTime, bool fromFinisher = false, bool fromEnvironmental = false )
+	/// <summary>Called by combat code when this enemy is hit by an attack or finisher.
+	/// Multi-tick finishers pass showDamageNumber: false and raise one aggregated number per victim
+	/// themselves, so a 6-jab flurry doesn't stack six tiny floating numbers on the same enemy.</summary>
+	public void ApplyHit( float damage, Vector3 knockback, float staggerTime, bool fromFinisher = false, bool fromEnvironmental = false, bool showDamageNumber = true )
 	{
 		if ( IsDead )
 			return;
@@ -581,8 +583,9 @@ public abstract class EnemyBase : Component
 		_pendingWasFinisher |= fromFinisher;
 		_pendingWasEnvironmental |= fromEnvironmental;
 
-		GameEvents.RaiseDamageNumber( WorldPosition + Vector3.Up * 62f, damage,
-			fromFinisher ? DamageNumberKind.Finisher : DamageNumberKind.Normal );
+		if ( showDamageNumber )
+			GameEvents.RaiseDamageNumber( WorldPosition + Vector3.Up * 62f, damage,
+				fromFinisher ? DamageNumberKind.Finisher : DamageNumberKind.Normal );
 
 		var severity01 = System.Math.Clamp( damage / 25f, 0.3f, 1.5f );
 		var hitPos = WorldPosition + Vector3.Up * 55f;

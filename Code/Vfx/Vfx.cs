@@ -58,6 +58,48 @@ public static class Vfx
 		catch { }
 	}
 
+	/// <summary>Ring of light points along a full circle around the player - one per Sweep Breaker
+	/// spin pulse, so each pulse reads as a shockwave coming off the spin. Centered on the player's
+	/// current position so a walking spin keeps dragging the ring along.</summary>
+	public static void AoePulseRing( Vector3 origin, float radius, Color color )
+	{
+		try
+		{
+			const int points = 10;
+			for ( int i = 0; i < points; i++ )
+			{
+				var angle = (i / (float)points) * MathF.PI * 2f;
+				var pos = origin + new Vector3( MathF.Cos( angle ), MathF.Sin( angle ), 0 ) * radius + Vector3.Up * 40f;
+				SpawnLightBurst( pos, color, 16f, 0.2f );
+			}
+		}
+		catch { }
+	}
+
+	/// <summary>Creates a short-lived FxShockwave front that sweeps forward from the player - the
+	/// Opening Slam line-shockwave's visuals. The component drives itself from the same speed and
+	/// duration the combat code uses, so the visible front matches the damage.</summary>
+	public static void ShockwaveFront( Vector3 origin, Vector3 facing, float speed, float duration, float arcDegrees )
+	{
+		try
+		{
+			var dir = new Vector3( facing.x, facing.y, 0 );
+			if ( dir.Length < 0.001f )
+				dir = Vector3.Forward;
+			else
+				dir /= dir.Length;
+
+			var go = new GameObject( true, "FxShockwave" ) { WorldPosition = origin };
+			var wave = go.Components.Create<FxShockwave>();
+			wave.StartPosition = origin;
+			wave.Direction = dir;
+			wave.Speed = speed;
+			wave.Duration = duration;
+			wave.ArcDegrees = arcDegrees;
+		}
+		catch { }
+	}
+
 	/// <summary>Bigger double-flash plus a wider ring of scatter sparks for a finisher connecting.</summary>
 	public static void FinisherBurst( Vector3 position )
 	{

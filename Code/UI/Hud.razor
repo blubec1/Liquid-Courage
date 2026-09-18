@@ -56,7 +56,7 @@
 			<div class="finisher-title">FINISHERS</div>
 			@foreach ( var f in FinisherLibrary.All )
 			{
-				<div class="finisher-row">@f.Description &rarr; @f.Name</div>
+				<div class="finisher-row">@f.Description &rarr; @f.Name <span class="finisher-blurb">(@f.Blurb)</span></div>
 			}
 		</div>
 
@@ -743,6 +743,11 @@
 		color: white;
 		font-size: 12px;
 		opacity: 0.85;
+	}
+
+	.finisher-blurb {
+		color: #ffb85c;
+		opacity: 0.9;
 	}
 
 	.damage-numbers-layer, .enemy-indicators-layer {
