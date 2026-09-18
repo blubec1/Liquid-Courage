@@ -82,6 +82,13 @@ public static class GameEvents
 	// --- Hit-stop gate (see RaiseHitStopRequested above) ---
 	static float _hitStopUntil = -1f;
 
+	/// <summary>Reset all run-scoped static state. Must be called when a run ends or restarts so
+	/// stale wall-clock gates (e.g. _hitStopUntil) don't leak into the next run.</summary>
+	public static void ResetState()
+	{
+		_hitStopUntil = -1f;
+	}
+
 	/// <summary>
 	/// True for the brief window after a hit-stop request. Movement/animation-driving systems
 	/// (PlayerMovement, PlayerAnimationDriver, EnemyBase) check this at the top of their update and

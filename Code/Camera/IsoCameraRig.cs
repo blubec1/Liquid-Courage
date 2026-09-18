@@ -68,12 +68,20 @@ public class IsoCameraRig : Component
 
 		GameEvents.ShakeRequested += OnShakeRequested;
 		GameEvents.HitStopRequested += OnHitStopRequested;
+		GameEvents.RunStarted += OnRunStarted;
 	}
 
 	protected override void OnDestroy()
 	{
 		GameEvents.ShakeRequested -= OnShakeRequested;
 		GameEvents.HitStopRequested -= OnHitStopRequested;
+		GameEvents.RunStarted -= OnRunStarted;
+	}
+
+	void OnRunStarted()
+	{
+		_shakeAmount = 0f;
+		_shakeEndTime = -999f;
 	}
 
 	void OnShakeRequested( float amount, float duration )
