@@ -372,6 +372,13 @@ public abstract class EnemyBase : Component
 		if ( GameManager.Instance is not null && GameManager.Instance.State != RunState.Playing )
 			return;
 
+		// Real freeze-frame on impact (see GameEvents.IsHitStopped) - pauses fall/attack-blend/AI for
+		// every enemy, not just whichever one was hit, so the whole scene visibly holds still for a
+		// beat instead of only camera shake selling the impact. Knockback slide above still plays
+		// through it - that's an existing deliberate exception (see its own comment) for stagger too.
+		if ( GameEvents.IsHitStopped )
+			return;
+
 		// Physics owns position while falling from an elevated spawn point - don't run attacks/AI
 		// until it's actually settled on the ground.
 		if ( !_hasLanded )

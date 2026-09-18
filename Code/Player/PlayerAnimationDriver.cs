@@ -179,6 +179,12 @@ public class PlayerAnimationDriver : Component
 
 	protected override void OnUpdate()
 	{
+		// Real freeze-frame on impact (see GameEvents.IsHitStopped) - holds the whole model (attack
+		// blend, locomotion feed, hit-flash timer, everything) still for the tiny window so a landed
+		// hit reads as having actually struck something, instead of just triggering extra shake.
+		if ( GameEvents.IsHitStopped )
+			return;
+
 		DriveLocomotion();
 		DriveDrunkWalk();
 		DriveAttackBoneOverrides();

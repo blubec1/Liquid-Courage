@@ -73,7 +73,31 @@ public static class GameEvents
 
 	/// <summary>Ask for a brief hit-stop (time scale dip). Duration in seconds (real time).</summary>
 	public static event Action<float> HitStopRequested;
-	public static void RaiseHitStopRequested( float duration ) => HitStopRequested?.Invoke( duration );
+	public static void RaiseHitStopRequested( float duration )
+	{
+		_hitStopUntil = MathF.Max( _hitStopUntil, Time.Now + duration );
+		HitStopRequested?.Invoke( duration );
+	}
+
+	// --- Hit-stop gate (see RaiseHitStopRequested above) ---
+	static float _hitStopUntil = -1f;
+
+	/// <summary>
+	/// True for the brief window after a hit-stop request. Movement/animation-driving systems
+	/// (PlayerMovement, PlayerAnimationDriver, EnemyBase) check this at the top of their update and
+	/// skip it entirely, producing a real freeze-frame on impact - previously RaiseHitStopRequested
+	/// only ever turned into extra camera shake (see IsoCameraRig.OnHitStopRequested) and never
+	/// actually paused anything, despite the doc comment above promising a "time scale dip".
+	///
+	/// Deliberately a simple wall-clock gate (same pattern as EnemyBase.FreezeUntil) rather than an
+	/// actual Scene.TimeScale dip - a real timescale change would hit everything uniformly (UI,
+	/// camera follow-lerp, VFX timers, menu transitions) and risks the kind of engine-wide weirdness
+	/// this project has deliberately avoided elsewhere (see DrinkMeter's doc comment on the same
+	/// decision). Camera shake/VFX are intentionally NOT gated by this - they keep playing through
+	/// the freeze, which is what makes the hit still read as *impactful* rather than the game just
+	/// stuttering.
+	/// </summary>
+	public static bool IsHitStopped => Time.Now < _hitStopUntil;
 
 	/// <summary>Fired every time damage actually lands on anyone (enemy or player), for the floating
 	/// damage number HUD. Args = world position to float the number up from, the amount, and what
