@@ -9,7 +9,9 @@ public class EnemySoberingBartender : EnemyBase
 	protected override void SetDefaults()
 	{
 		MaxHP = 20f;
-		MoveSpeed = 125f;
+		// Middle of the pack - brisk enough to force a real decision about prioritizing it. Lowered
+		// along with the rest of the horde's general slowdown pass.
+		MoveSpeed = 165f;
 		Damage = 4f;
 		AttackRange = 45f;
 		AttackCooldown = 1.4f;
@@ -20,7 +22,18 @@ public class EnemySoberingBartender : EnemyBase
 
 	public override void ApplyVisual()
 	{
-		if ( BodyRenderer is not null )
-			BodyRenderer.Tint = new Color( 0.95f, 0.8f, 0.25f, 1f );
+		if ( BodyRenderer is null )
+			return;
+
+		// No Tint override anymore - the apron itself (applied below) is what should make this
+		// archetype instantly readable, not a color multiply that was also muddying real skin tone.
+		BodyRenderer.Tint = Color.White;
+
+		EnemyOutfitter.Apply( BodyRenderer, "SoberingBartender",
+			new[] { "Apron" },
+			new[] { "Dress Shirt", "Shirt", "Waistcoat", "Vest", "Blouse" },
+			new[] { "Trousers", "Pants", "Slacks", "Skirt" },
+			new[] { "Shoes", "Boots", "Heels" },
+			new[] { "Bow Tie", "Tie", "Bandana", "Hair", "Cap" } );
 	}
 }

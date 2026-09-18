@@ -58,6 +58,23 @@ public class AttackDefinition
 
 	/// <summary>When true, player movement and facing are frozen for the duration of this attack.</summary>
 	public bool DisableMovement;
+
+	/// <summary>
+	/// 0 = off. When set, this attack also pushes every living enemy within this radius of the
+	/// player - regardless of facing/arc, and regardless of whether they were also hit by the normal
+	/// Range/ArcDegrees check above - directly away from the player (not the attacker's facing
+	/// direction). Built for Kick: a plain arc-based knockback only ever pushed the front row, and
+	/// the untouched enemies behind them acted as a wall the front row's knockback slid straight
+	/// into, so nothing visibly moved. Pushing the whole crowd within this radius at once means there
+	/// is no stationary wall left to block anyone.
+	/// </summary>
+	public float RadialPushRadius;
+
+	/// <summary>Empty/null = pick a sound off ImpactStrength's thresholds as normal (see
+	/// HitFeedback.PlayImpactSound). Set this to force a specific impact cue instead - used by Kick,
+	/// which wants the light-punch sound even though its ImpactStrength (tuned for shake/hitstop
+	/// feel, not sound selection) would otherwise land it in the "medium" bucket.</summary>
+	public string ImpactSoundOverride;
 }
 
 public static class AttackLibrary
@@ -79,6 +96,11 @@ public static class AttackLibrary
 			Knockback = 90,
 			StaggerTime = 0.18f,
 		},
+		// Fully reworked into a pure "get off me" panic button, zero damage - Punch/Heavy are the
+		// damage tools, Kick is only about clearing space. Knockback bumped again for a real, visible
+		// shove. The guarantee that kicked enemies can't immediately hit back is still StaggerTime,
+		// not distance: EnemyBase freezes an enemy's whole AI (including attack resolution) for
+		// StaggerTime regardless of where the knockback leaves it.
 		[AttackId.Kick] = new()
 		{
 			Id = AttackId.Kick,
@@ -87,14 +109,20 @@ public static class AttackLibrary
 			Animation = "Roundhouse_Kick_2",
 			AnimationDuration = 0.6f,
 			Name = "Kick",
-			Damage = 13,
+			Damage = 0,
 			Cooldown = 0.44f,
 			Recovery = 0.18f,
 			Range = 80,
-			ArcDegrees = 90,
-			ImpactStrength = 0.5f,
-			Knockback = 220,
-			StaggerTime = 0.32f,
+			ArcDegrees = 150,
+			ImpactStrength = 0.4f,
+			Knockback = 600,
+			StaggerTime = 0.65f,
+			// Covers a tightly packed crowd 2-3 deep around the player - well past the 80-unit hit
+			// Range above on purpose (see RadialPushRadius's doc comment: this is deliberately NOT the
+			// same knob as Range, which stays a normal frontal-arc hitbox for damage/flash purposes).
+			RadialPushRadius = 220,
+			// User-requested: kick uses the same impact sound as the light punch.
+			ImpactSoundOverride = "sounds/combat/light_impact.sound",
 		},
 		[AttackId.Heavy] = new()
 		{

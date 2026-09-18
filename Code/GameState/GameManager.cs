@@ -43,6 +43,11 @@ public class GameManager : Component
 	protected override void OnStart()
 	{
 		Instance = this;
+		GameEvents.ResetState();
+
+		// Must happen on every fresh Play session, not just StartGame/RestartRun - see
+		// GameEvents.ResetHitStop's doc comment for why a bare static field needs this at all.
+		GameEvents.ResetHitStop();
 
 		var player = Scene.GetAllComponents<PlayerMovement>().FirstOrDefault();
 		if ( player is not null )
@@ -71,11 +76,11 @@ public class GameManager : Component
 				RestartRun();
 		}
 
-		// Escape toggles pause mid-run. Read raw/unrebindable (same pattern as the M/N drunkenness
+		// Tab toggles pause mid-run. Read raw/unrebindable (same pattern as the M/N drunkenness
 		// cheat keys) rather than through Input.config, since this shouldn't be rebindable.
 		try
 		{
-			if ( Sandbox.Input.Keyboard.Pressed( "Escape" ) && (State == RunState.Playing || State == RunState.Paused) )
+			if ( Sandbox.Input.Keyboard.Pressed( "Tab" ) && (State == RunState.Playing || State == RunState.Paused) )
 				TogglePause();
 		}
 		catch { }
@@ -88,10 +93,17 @@ public class GameManager : Component
 			return;
 
 		State = RunState.Playing;
+
+		// Apply the player's saved Customize-screen outfit/skin now that a run is actually starting -
+		// the live-apply from the Customize screen itself only fires while that screen is open, so
+		// this covers the normal "picked an outfit last session, now pressing Play" path too.
+		try { PlayerOutfit.Instance.ApplyTo( PlayerAnimationDriver.Local?.BodyRenderer ); }
+		catch ( Exception ex ) { Log.Warning( $"[GameManager] Failed to apply PlayerOutfit at run start: {ex.Message}" ); }
+
 		GameEvents.RaiseRunStarted();
 	}
 
-	/// <summary>Called by Escape mid-run (or the pause menu's Resume button). Flips Playing &harr; Paused.</summary>
+	/// <summary>Called by Tab mid-run (or the pause menu's Resume button). Flips Playing &harr; Paused.</summary>
 	public void TogglePause()
 	{
 		if ( State == RunState.Playing )
@@ -106,6 +118,7 @@ public class GameManager : Component
 	{
 		ClearRunObjects();
 
+		GameEvents.ResetState();
 		ComboSystem.Local?.ResetRun();
 		DrunkennessSystem.Local?.ResetRun();
 		ScoreSystem.Local?.ResetRun();
@@ -173,6 +186,7 @@ public class GameManager : Component
 
 		ClearRunObjects();
 
+		GameEvents.ResetState();
 		ComboSystem.Local?.ResetRun();
 		DrunkennessSystem.Local?.ResetRun();
 		ScoreSystem.Local?.ResetRun();

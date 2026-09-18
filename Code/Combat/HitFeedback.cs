@@ -8,7 +8,11 @@ namespace DrunkenBarFight;
 /// </summary>
 public static class HitFeedback
 {
-	public static void PlayAttackImpact( float impactStrength, int hitCount )
+	/// <summary>soundOverride lets a specific attack force its own impact cue instead of picking one
+	/// off the impactStrength thresholds below - used by Kick, which wants the light-punch sound
+	/// even though its ImpactStrength (0.4, for shake/hitstop feel) would otherwise land it in the
+	/// "medium" bucket.</summary>
+	public static void PlayAttackImpact( float impactStrength, int hitCount, string soundOverride = null )
 	{
 		if ( hitCount <= 0 )
 			return;
@@ -18,7 +22,10 @@ public static class HitFeedback
 		GameEvents.RaiseShakeRequested( shakeAmount, shakeDuration );
 		GameEvents.RaiseHitStopRequested( impactStrength * 0.1f );
 
-		PlayImpactSound( impactStrength );
+		if ( !string.IsNullOrEmpty( soundOverride ) )
+			GameSettings.PlaySound( soundOverride );
+		else
+			PlayImpactSound( impactStrength );
 	}
 
 	public static void PlayFinisherImpact( float impactStrength, int hitCount )
@@ -28,31 +35,36 @@ public static class HitFeedback
 		GameEvents.RaiseShakeRequested( shakeAmount, shakeDuration );
 		GameEvents.RaiseHitStopRequested( 0.18f );
 
-		Sound.Play( "sounds/combat/finisher_impact.sound" );
+		GameSettings.PlaySound( "sounds/combat/finisher_impact.sound" );
 	}
 
 	/// <summary>The player's own "ouch" feedback - shake plus a hurt sound, scaled by how big a
 	/// chunk of max HP the hit took (0-1). Kept separate from PlayAttackImpact/PlayFinisherImpact
-	/// since this is feedback for damage taken, not damage dealt.</summary>
+	/// since this is feedback for damage taken, not damage dealt.
+	///
+	/// Bumped from 4/16 (amount) and 0.1/0.16 (duration) - the old floor was so low that small chip
+	/// hits (the common case when surrounded) barely registered. Still meant to read as a "slight"
+	/// jolt, not a disorienting wallop - PlayFinisherImpact above is deliberately the bigger one.</summary>
 	public static void PlayPlayerHurt( float severity01 )
 	{
-		var shakeAmount = 4f + severity01 * 16f;
-		var shakeDuration = 0.1f + severity01 * 0.16f;
+		var shakeAmount = 6f + severity01 * 18f;
+		var shakeDuration = 0.12f + severity01 * 0.18f;
 		GameEvents.RaiseShakeRequested( shakeAmount, shakeDuration );
 
-		if ( severity01 >= 0.12f )
-			Sound.Play( "sounds/combat/heavy_impact.sound" );
-		else
-			Sound.Play( "sounds/combat/light_impact.sound" );
+		// One shared "getting hit" cue regardless of severity (previously split into light/heavy
+		// variants, but only one clip exists) - separate from the sounds played when the PLAYER lands
+		// a hit (PlayImpactSound below). Routed through GameSettings.PlaySound (not raw Sound.Play) so
+		// it respects the master volume slider like every other cue should.
+		GameSettings.PlaySound( "sounds/combat/player_hurt.sound" );
 	}
 
 	static void PlayImpactSound( float impactStrength )
 	{
 		if ( impactStrength >= 0.75f )
-			Sound.Play( "sounds/combat/heavy_impact.sound" );
+			GameSettings.PlaySound( "sounds/combat/heavy_impact.sound" );
 		else if ( impactStrength >= 0.4f )
-			Sound.Play( "sounds/combat/medium_impact.sound" );
+			GameSettings.PlaySound( "sounds/combat/medium_impact.sound" );
 		else
-			Sound.Play( "sounds/combat/light_impact.sound" );
+			GameSettings.PlaySound( "sounds/combat/light_impact.sound" );
 	}
 }

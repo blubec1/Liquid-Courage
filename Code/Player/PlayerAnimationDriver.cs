@@ -15,6 +15,10 @@ namespace DrunkenBarFight;
 /// duration (see DrinkMeter/PlayerMovement/PlayerFacing), so there's no locomotion to protect,
 /// and it just does a plain full-body sequence swap the simple way.
 ///
+/// Drunk walk (see DriveDrunkWalk) uses that same full-body swap, but held for as long as the
+/// player is both drunk enough and actually moving, instead of a fixed duration - it's off by
+/// default (DrunkWalkAnimation empty) until a stumble-walk clip is wired up.
+///
 /// Every step here is best-effort and wrapped defensively: if a clip name is wrong, a bone
 /// doesn't resolve, or an API doesn't behave as expected, it falls back all the way to the
 /// original procedural lunge/squash-stretch rather than breaking combat.
@@ -29,8 +33,20 @@ public class PlayerAnimationDriver : Component
 	[Property, Group( "Tuning" )] public float LungeDistance { get; set; } = 14f;
 	[Property, Group( "Tuning" )] public float SquashAmount { get; set; } = 0.12f;
 
-	[Property, Group( "Attack Blending" )] public float BlendInDuration { get; set; } = 0.08f;
-	[Property, Group( "Attack Blending" )] public float BlendOutDuration { get; set; } = 0.12f;
+	// Bumped from 0.08/0.12 - the shorter values snapped in/out of the attack pose almost instantly,
+	// which read as stiff/mechanical rather than a fluid strike. Still fast enough not to feel laggy
+	// mid-combo, especially now that the ramp itself is eased (see Smoothstep in
+	// DriveAttackBoneOverrides) instead of a straight linear blend.
+	[Property, Group( "Attack Blending" )] public float BlendInDuration { get; set; } = 0.12f;
+	[Property, Group( "Attack Blending" )] public float BlendOutDuration { get; set; } = 0.18f;
+
+	// Drunk walk: once the player is drunk enough AND actually moving, swap the whole body onto a
+	// looping stumble-walk clip instead of the normal Citizen locomotion animgraph (same full-body
+	// swap mechanism as attacks/drink - see TryPlaySequenceFull). Leave DrunkWalkAnimation blank
+	// until a clip/sequence exists for it; empty string just means "feature off".
+	[Property, Group( "Drunk Walk" )] public string DrunkWalkAnimation { get; set; } = "";
+	[Property, Group( "Drunk Walk" )] public float DrunkWalkThreshold01 { get; set; } = 0.3f;
+	[Property, Group( "Drunk Walk" )] public float DrunkWalkMoveSpeedThreshold { get; set; } = 15f;
 
 	// Citizen rig bone names, upper body only ("spine_0" and up) - see PLAN_AnimationBlending.md.
 	// Everything below this (pelvis, legs, feet) is left entirely animgraph-driven, so locomotion
@@ -47,6 +63,10 @@ public class PlayerAnimationDriver : Component
 
 	CharacterController _cc;
 	SkinnedModelRenderer _bodyRenderer;
+
+	/// <summary>Exposed so PlayerOutfit can apply the saved outfit/skin selection to the live player
+	/// model, both at spawn and immediately when the Customize screen changes a selection.</summary>
+	public SkinnedModelRenderer BodyRenderer => _bodyRenderer;
 
 	float _swingStartTime = -999f;
 	float _swingDuration = 0.2f;
@@ -69,6 +89,9 @@ public class PlayerAnimationDriver : Component
 	// --- Drink full-body sequence state (no blending needed - movement is paused during it) ---
 	bool _drinkSequenceActive;
 	float _drinkSequenceRevertTime;
+
+	// --- Drunk walk state (see DriveDrunkWalk) ---
+	bool _drunkWalkActive;
 
 	// --- Hit-flash state (see FlashHit) ---
 	const float HitFlashDuration = 0.18f;
@@ -156,7 +179,15 @@ public class PlayerAnimationDriver : Component
 
 	protected override void OnUpdate()
 	{
+		// Real freeze-frame on impact (see GameEvents.IsHitStopped) - holds the whole model (attack
+		// blend, locomotion feed, hit-flash timer, everything) still for the tiny window so a landed
+		// hit reads as having actually struck something, instead of just triggering extra shake.
+		if ( GameEvents.IsHitStopped )
+			return;
+
 		DriveLocomotion();
+		DriveDrunkWalk();
+		DriveAttackBoneOverrides();
 		DriveDrinkSequenceRevert();
 		DriveAttackVisual();
 		DriveDrinkVisual();
@@ -245,19 +276,44 @@ public class PlayerAnimationDriver : Component
 	}
 
 	/// <summary>
-	/// Attack path. Used to blend a hidden secondary SceneModel's sampled pose onto just the
-	/// upper-body bones each frame while the animgraph kept driving the legs (see
-	/// PLAN_AnimationBlending.md) - but two separate fix attempts at the world/local bone-space
-	/// conversion (re-parenting the sample model's transform every frame, then a ToLocal/ToWorld
-	/// round-trip) both produced visible corruption of the upper body (invisible, then outright
-	/// wrecked geometry). Rather than attempt a third theory blind, this now always takes the same
-	/// reliable full-body sequence swap path the drink "chug" animation already uses successfully -
-	/// legs freeze for the attack's duration instead of continuing to walk, but the body renders
-	/// correctly. The bone-blend fields/methods below are kept but no longer invoked from here.
+	/// Attack path: leaves the main animgraph running (legs/hips keep walking) and instead scrubs
+	/// the clip on the hidden secondary SceneModel, which DriveAttackBoneOverrides blends onto just
+	/// the upper-body bones every frame (see that method's doc comment for the coordinate-space
+	/// pipeline - the earlier invisible/wrecked-body bugs both traced back to space mismatches in
+	/// that pipeline, now fixed: fresh animation-only sampling, a flushed sample pose via
+	/// Update(0f), and converting the blended world pose to model-local before SetBoneTransform).
+	/// Falls back to the full-body swap if the bone-blend setup isn't available on this model.
 	/// </summary>
 	bool TryPlaySequenceBlended( string sequenceName, float duration )
 	{
-		return TryPlaySequenceFull( sequenceName, duration );
+		if ( string.IsNullOrEmpty( sequenceName ) )
+			return false;
+
+		if ( _sampleModel is null || _overrideBones is null )
+		{
+			Log.Info( $"[AnimBlend] '{sequenceName}': no sample model/bones, falling back to full-body swap." );
+			return TryPlaySequenceFull( sequenceName, duration );
+		}
+
+		try
+		{
+			_sampleModel.CurrentSequence.Name = sequenceName;
+			_sampleModel.CurrentSequence.Time = 0f;
+
+			_sequenceTime = 0f;
+			_currentBlendWeight = 0f;
+			_attackSequenceActive = true;
+			_attackSequenceRevertTime = Time.Now + duration;
+
+			Log.Info( $"[AnimBlend] Playing '{sequenceName}' (blended, {duration:0.00}s)." );
+			return true;
+		}
+		catch ( System.Exception ex )
+		{
+			Log.Warning( $"[AnimBlend] '{sequenceName}' blended playback threw, falling back to full-body swap: {ex.Message}" );
+			_attackSequenceActive = false;
+			return TryPlaySequenceFull( sequenceName, duration );
+		}
 	}
 
 	/// <summary>Old/simple approach: fully disables the animgraph on the main body and plays the
@@ -308,6 +364,61 @@ public class PlayerAnimationDriver : Component
 			{
 				// If this fails there's nothing more we can safely do from here.
 			}
+		}
+	}
+
+	/// <summary>
+	/// When drunk enough and actually moving, swaps the body onto a looping stumble-walk clip
+	/// instead of the normal Citizen locomotion animgraph - same full-body-swap mechanism as
+	/// TryPlaySequenceFull, just held for as long as the condition holds rather than a fixed
+	/// duration. Defers entirely to an active attack/drink swap (_drinkSequenceActive) so it never
+	/// fights those; DriveDrinkSequenceRevert already hands UseAnimGraph back afterward, and
+	/// clearing _drunkWalkActive here lets this cleanly re-enter next frame instead of thinking
+	/// it's still mid-loop. No-ops entirely until DrunkWalkAnimation is set to a real sequence name.
+	/// </summary>
+	void DriveDrunkWalk()
+	{
+		if ( _bodyRenderer is null || string.IsNullOrEmpty( DrunkWalkAnimation ) )
+			return;
+
+		if ( _drinkSequenceActive )
+		{
+			_drunkWalkActive = false;
+			return;
+		}
+
+		var sceneModel = _bodyRenderer.SceneModel;
+		if ( sceneModel is null )
+			return;
+
+		var fraction = DrunkennessSystem.Local?.Fraction01 ?? 0f;
+		var vel = _cc?.Velocity ?? Vector3.Zero;
+		var groundSpeed = new Vector3( vel.x, vel.y, 0f ).Length;
+		var shouldWalk = fraction >= DrunkWalkThreshold01 && groundSpeed >= DrunkWalkMoveSpeedThreshold;
+
+		if ( shouldWalk )
+		{
+			if ( _drunkWalkActive )
+				return;
+
+			try
+			{
+				sceneModel.UseAnimGraph = false;
+				sceneModel.CurrentSequence.Name = DrunkWalkAnimation;
+				_drunkWalkActive = true;
+				Log.Info( $"[DrunkWalk] Entered drunk-walk loop ('{DrunkWalkAnimation}')." );
+			}
+			catch ( System.Exception ex )
+			{
+				Log.Warning( $"[DrunkWalk] Failed to play '{DrunkWalkAnimation}': {ex.Message}" );
+				_drunkWalkActive = false;
+			}
+		}
+		else if ( _drunkWalkActive )
+		{
+			try { sceneModel.UseAnimGraph = true; }
+			catch { }
+			_drunkWalkActive = false;
 		}
 	}
 
@@ -377,9 +488,13 @@ public class PlayerAnimationDriver : Component
 			// GetBoneWorldTransform returns the current pose, not stale bind data.
 			_sampleModel.Update( 0f );
 
-			var fadeIn = BlendInDuration > 0f ? System.Math.Clamp( _sequenceTime / BlendInDuration, 0f, 1f ) : 1f;
+			// Smoothstep instead of a raw linear ramp - a straight-line blend weight snaps to
+			// noticeable speed changes right at the start/end of the fade, which is what made the
+			// bone-blend attacks feel stiff/mechanical rather than fluid. Easing both ends of the
+			// curve (slow-fast-slow) reads as a much more natural strike.
+			var fadeIn = BlendInDuration > 0f ? Smoothstep( System.Math.Clamp( _sequenceTime / BlendInDuration, 0f, 1f ) ) : 1f;
 			var remaining = _attackSequenceRevertTime - Time.Now;
-			var fadeOut = BlendOutDuration > 0f ? System.Math.Clamp( remaining / BlendOutDuration, 0f, 1f ) : 1f;
+			var fadeOut = BlendOutDuration > 0f ? Smoothstep( System.Math.Clamp( remaining / BlendOutDuration, 0f, 1f ) ) : 1f;
 			_currentBlendWeight = System.MathF.Min( fadeIn, fadeOut );
 
 			// Hide the sample model so it doesn't render — it's only here for bone data.
@@ -398,7 +513,6 @@ public class PlayerAnimationDriver : Component
 					missCount++;
 					continue;
 				}
-
 				// Both are world-space at the same world position (sample model synced above).
 				var attackWorldTx = _sampleModel.GetBoneWorldTransform( bone.Index );
 				var blendedWorld = animWorldTx.LerpTo( attackWorldTx, _currentBlendWeight );
@@ -458,10 +572,13 @@ public class PlayerAnimationDriver : Component
 			return;
 		}
 
-		// Quick out-and-back curve: fast lunge forward, slower recover.
+		// Quick out-and-back curve: fast lunge forward, slower recover. Smoothstepped on both halves
+		// instead of a straight linear ramp so the lunge eases into and out of its peak rather than
+		// changing direction/speed abruptly at t=0.35 - that sharp corner was a big part of what made
+		// the procedural fallback swing feel stiff compared to a real animation clip.
 		var curve = t < 0.35f
-			? (t / 0.35f)
-			: 1f - ((t - 0.35f) / 0.65f);
+			? Smoothstep( t / 0.35f )
+			: Smoothstep( 1f - ((t - 0.35f) / 0.65f) );
 
 		var lunge = Vector3.Forward * (LungeDistance * _swingStrength * curve);
 		ModelPivot.LocalPosition = lunge;
@@ -489,8 +606,9 @@ public class PlayerAnimationDriver : Component
 		if ( _usingDrinkClipVisual )
 			return;
 
-		// Tilt back and hold, then recover - a "head back, chugging" read.
-		var curve = t < 0.4f ? (t / 0.4f) : 1f - ((t - 0.4f) / 0.6f);
+		// Tilt back and hold, then recover - a "head back, chugging" read. Smoothstepped for the same
+		// reason as the attack lunge curve above - avoids a mechanical linear snap at the peak.
+		var curve = t < 0.4f ? Smoothstep( t / 0.4f ) : Smoothstep( 1f - ((t - 0.4f) / 0.6f) );
 
 		try
 		{
@@ -501,5 +619,14 @@ public class PlayerAnimationDriver : Component
 		{
 			// Rotation.FromPitch shape mismatch or similar - not fatal, just skip the tilt this frame.
 		}
+	}
+
+	/// <summary>Classic ease-in/ease-out cubic (3t²-2t³), clamped to [0,1] input. Used everywhere a
+	/// linear 0-1 blend factor would otherwise change speed abruptly at either end - attack bone-blend
+	/// weight, procedural lunge, and drink tilt all route through this for a more fluid feel.</summary>
+	static float Smoothstep( float t )
+	{
+		t = System.Math.Clamp( t, 0f, 1f );
+		return t * t * (3f - 2f * t);
 	}
 }

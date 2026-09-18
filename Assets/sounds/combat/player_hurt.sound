@@ -1,0 +1,6 @@
+{
+	"Sounds": [
+		"sounds/combat/player_hurt.wav"
+	],
+	"Volume": 1
+}

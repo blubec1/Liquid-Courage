@@ -64,9 +64,9 @@
 						disable_interpolation = false
 						enable_scale = false
 						source_filename = "animations/retargeted/roundhouse_kick_2.dmx"
-						start_frame = -1
+						start_frame = 14
 						end_frame = 64
-						framerate = 120.0
+						framerate = 60.0
 						take = 0
 						reverse = false
 					},
@@ -280,8 +280,8 @@
 						enable_scale = false
 						source_filename = "animations/retargeted/grab_and_slam_2.dmx"
 						start_frame = -1
-						end_frame = -1
-						framerate = -1.0
+						end_frame = 34
+						framerate = 20.0
 						take = 0
 						reverse = false
 					},

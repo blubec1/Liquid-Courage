@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace DrunkenBarFight;
@@ -100,8 +101,12 @@ public class PlayerCombat : Component
 			enemy.ApplyHit( def.Damage * damageMult, dir * def.Knockback, def.StaggerTime );
 		}
 
-		HitFeedback.PlayAttackImpact( def.ImpactStrength, hits.Count );
+		if ( def.RadialPushRadius > 0f )
+			ApplyRadialPush( origin, def, hits );
+
+		HitFeedback.PlayAttackImpact( def.ImpactStrength, hits.Count, def.ImpactSoundOverride );
 		PlayerAnimationDriver.Local?.PlayAttackSwing( def );
+		Vfx.AttackArc( origin, facing, def.ArcDegrees, def.Range, new Color( 0.9f, 0.95f, 1f ) );
 
 		if ( def.DisableMovement )
 		{
@@ -113,6 +118,32 @@ public class PlayerCombat : Component
 		{
 			ComboSystem.Local?.RegisterHit( hits.Count );
 			RaiseAttackPerformed( id );
+		}
+	}
+
+	/// <summary>
+	/// See AttackDefinition.RadialPushRadius. Finds every living enemy within that radius (a full
+	/// circle around the player, not the attack's own facing arc - reuses HitDetector.FindEnemies
+	/// with arcDegrees=360, which it already treats as "ignore facing entirely") and shoves anyone
+	/// not already handled by the normal arc-hit loop straight away from the player. Zero damage -
+	/// this is knockback-only, so it can't unfairly hit enemies the player never actually swung at.
+	/// </summary>
+	void ApplyRadialPush( Vector3 origin, AttackDefinition def, List<EnemyBase> alreadyHit )
+	{
+		var nearby = HitDetector.FindEnemies( origin, Vector3.Forward, def.RadialPushRadius, 360f );
+
+		foreach ( var enemy in nearby )
+		{
+			if ( alreadyHit.Contains( enemy ) )
+				continue;
+
+			var dir = enemy.WorldPosition - origin;
+			dir = new Vector3( dir.x, dir.y, 0 );
+			if ( dir.Length <= 0.01f )
+				continue;
+
+			dir /= dir.Length;
+			enemy.ApplyHit( 0f, dir * def.Knockback, def.StaggerTime );
 		}
 	}
 
@@ -135,6 +166,10 @@ public class PlayerCombat : Component
 
 		HitFeedback.PlayFinisherImpact( finisher.ImpactStrength, hits.Count );
 		PlayerAnimationDriver.Local?.PlayFinisher( finisher );
+		Vfx.AttackArc( origin, facing, finisher.ArcDegrees, finisher.Range, new Color( 1f, 0.8f, 0.3f ) );
+
+		if ( hits.Count > 0 )
+			Vfx.FinisherBurst( origin + facing * (finisher.Range * 0.6f) + Vector3.Up * 55f );
 
 		if ( finisher.DisableMovement )
 		{

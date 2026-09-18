@@ -1,23 +1,27 @@
 @using Sandbox;
 @using Sandbox.UI;
+@using System;
+@using System.Collections.Generic;
 @using DrunkenBarFight;
 @inherits PanelComponent
 @namespace DrunkenBarFight
 
 <root>
-	<div class="menu-root @(Visible ? "visible" : "")">
+	<div class="menu-root @(Visible ? "visible" : "") @(_screen == MenuScreen.Customize ? "customize-mode" : "")">
 
-		<div class="glow glow-a"></div>
-		<div class="glow glow-b"></div>
+		<!-- Ash + neon glow render on every screen, including Customize - only the title/footer stay
+		     screen-specific below. -->
+		<div class="glow glow-a" style="opacity:@(GlowAAlpha.ToString( "0.##" ));"></div>
+		<div class="glow glow-b" style="opacity:@(GlowBAlpha.ToString( "0.##" ));"></div>
 
 		<div class="motes">
-			@for ( int i = 0; i < MoteCount; i++ )
+			@foreach ( var m in Motes )
 			{
-				<div class="mote mote-@i"></div>
+				<div class="mote @(m.IsEmber ? "mote-ember" : "mote-ash")" style="left:@(m.LeftPercent.ToString( "0.##" ))%; bottom:@(m.Bottom.ToString( "0.##" ))px; opacity:@(m.Opacity.ToString( "0.##" )); width:@(m.Size.ToString( "0.#" ))px; height:@(m.Size.ToString( "0.#" ))px;"></div>
 			}
 		</div>
 
-		<div class="panel">
+		<div class="panel" style="box-shadow:@(PanelBoxShadow);">
 
 			<div class="accent-bar"></div>
 			<div class="corner corner-tl"></div>
@@ -25,18 +29,93 @@
 			<div class="corner corner-bl"></div>
 			<div class="corner corner-br"></div>
 
-			<div class="title-wrap">
-				<div class="title-line1">DRUNKEN</div>
-				<div class="title-line2">BAR FIGHT</div>
-			</div>
+			@if ( _screen != MenuScreen.Customize )
+			{
+				<div class="title-wrap">
+					<div class="title-line1" style="transform:scale(@(TitlePulse.ToString( "0.###" ))); text-shadow:@(TitleTextShadowSmall);">DRUNKEN</div>
+					<div class="title-line2" style="transform:scale(@(TitlePulse.ToString( "0.###" ))); text-shadow:@(TitleTextShadow);">BAR FIGHT</div>
+				</div>
+			}
 
 			@if ( _screen == MenuScreen.Root )
 			{
 				<div class="nav">
-					<div class="nav-button primary" onclick="@PlayClicked">PLAY</div>
+					<div class="nav-button primary" style="box-shadow:0 0 @(PlayGlowSize.ToString( "0.#" ))px rgba(224,48,58,@(PlayGlowAlpha.ToString( "0.##" ))); transform:scale(@(PlayPulse.ToString( "0.###" )));" onclick="@PlayClicked">PLAY</div>
+					<div class="nav-button" onclick="@GoToCustomize">CUSTOMIZE</div>
 					<div class="nav-button" onclick="@GoToHowToPlay">HOW TO PLAY</div>
 					<div class="nav-button" onclick="@GoToSettings">SETTINGS</div>
 				</div>
+			}
+
+			@if ( _screen == MenuScreen.Customize )
+			{
+				<div class="sub-title">CUSTOMIZE</div>
+
+				<div class="customize-list">
+					<div class="customize-row">
+						<div class="customize-label">SKIN</div>
+						<div class="customize-control">
+							<div class="stepper-button" onclick="@SkinPrev">&lt;</div>
+							<div class="customize-value">@SkinLabel</div>
+							<div class="stepper-button" onclick="@SkinNext">&gt;</div>
+						</div>
+					</div>
+
+					<div class="customize-row">
+						<div class="customize-label">TOP</div>
+						<div class="customize-control">
+							<div class="stepper-button" onclick="@TopPrev">&lt;</div>
+							<div class="customize-value">@TopLabel</div>
+							<div class="stepper-button" onclick="@TopNext">&gt;</div>
+						</div>
+					</div>
+
+					<div class="customize-row">
+						<div class="customize-label">BOTTOM</div>
+						<div class="customize-control">
+							<div class="stepper-button" onclick="@BottomPrev">&lt;</div>
+							<div class="customize-value">@BottomLabel</div>
+							<div class="stepper-button" onclick="@BottomNext">&gt;</div>
+						</div>
+					</div>
+
+					<div class="customize-row">
+						<div class="customize-label">SHOES</div>
+						<div class="customize-control">
+							<div class="stepper-button" onclick="@ShoesPrev">&lt;</div>
+							<div class="customize-value">@ShoesLabel</div>
+							<div class="stepper-button" onclick="@ShoesNext">&gt;</div>
+						</div>
+					</div>
+
+					<div class="customize-row">
+						<div class="customize-label">HEAD</div>
+						<div class="customize-control">
+							<div class="stepper-button" onclick="@HeadPrev">&lt;</div>
+							<div class="customize-value">@HeadLabel</div>
+							<div class="stepper-button" onclick="@HeadNext">&gt;</div>
+						</div>
+					</div>
+
+					<div class="customize-row">
+						<div class="customize-label">ACCESSORY</div>
+						<div class="customize-control">
+							<div class="stepper-button" onclick="@AccessoryPrev">&lt;</div>
+							<div class="customize-value">@AccessoryLabel</div>
+							<div class="stepper-button" onclick="@AccessoryNext">&gt;</div>
+						</div>
+					</div>
+
+					<div class="customize-row">
+						<div class="customize-label">ROTATE</div>
+						<div class="customize-control">
+							<div class="stepper-button" onclick="@RotateLeft">&lt;</div>
+							<div class="stepper-button" onclick="@RotateRight">&gt;</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="nav-button back" onclick="@GoToRoot">BACK</div>
 			}
 
 			@if ( _screen == MenuScreen.HowToPlay )
@@ -50,7 +129,7 @@
 					<div class="control-row"><div class="key">RMB</div><div class="desc">Heavy Attack</div></div>
 					<div class="control-row"><div class="key">E</div><div class="desc">Leg Sweep (90&deg; arc)</div></div>
 					<div class="control-row"><div class="key">G</div><div class="desc">Throw Bottle</div></div>
-					<div class="control-row"><div class="key">Esc</div><div class="desc">Pause</div></div>
+					<div class="control-row"><div class="key">Tab</div><div class="desc">Pause</div></div>
 				</div>
 
 				<div class="tip">Land hits to build your combo. Beat enemies to fill the drink meter -
@@ -95,50 +174,227 @@
 
 		</div>
 
-		<div class="footer">last call comes for everyone</div>
+		@if ( _screen != MenuScreen.Customize )
+		{
+			<div class="footer">last call comes for everyone</div>
+		}
 
 	</div>
 </root>
 
 @code
 {
-	enum MenuScreen { Root, HowToPlay, Settings }
+	enum MenuScreen { Root, HowToPlay, Settings, Customize }
 
 	MenuScreen _screen = MenuScreen.Root;
 
 	public bool Visible => GameManager.Instance?.State == RunState.MainMenu;
 
-	public int MoteCount => 14;
+	public const int MoteCount = 20;
 
 	GameSettings Settings => GameSettings.Instance;
 
 	public string ResolutionLabel => Settings.ResolutionLabel( Settings.ResolutionIndex );
 
+	// --- Ambient "alive" motion, all driven from C# via Time.Now (see BuildHash's time bucket
+	// below) and applied as inline styles - the same proven pattern Hud.razor already uses for its
+	// sway/vignette effects. CSS @keyframes/animation was the original approach here but didn't
+	// actually render in practice, so every continuously-moving value on this screen is computed
+	// per-frame in code instead of left to a CSS animation loop. ---
+
+	public float TitlePulse => 1f + MathF.Sin( Time.Now * 1.6f ) * 0.015f;
+
+	float TitleGlowAlpha => 0.55f + MathF.Sin( Time.Now * 2.1f ) * 0.25f;
+	public string TitleTextShadow => $"0 2px 10px black, 0 0 24px rgba(224,48,58,{TitleGlowAlpha.ToString( "0.##" )})";
+	public string TitleTextShadowSmall => $"0 2px 8px black, 0 0 16px rgba(224,48,58,{(TitleGlowAlpha * 0.8f).ToString( "0.##" )})";
+
+	float PanelGlowAlpha => 0.16f + MathF.Sin( Time.Now * 1.1f ) * 0.09f;
+	public string PanelBoxShadow => $"0 10px 40px rgba(0,0,0,0.55), 0 0 34px rgba(224,48,58,{PanelGlowAlpha.ToString( "0.##" )})";
+
+	public float PlayPulse => 1f + MathF.Sin( Time.Now * 2.4f ) * 0.018f;
+	public float PlayGlowAlpha => 0.3f + MathF.Sin( Time.Now * 2.4f ) * 0.22f;
+	public float PlayGlowSize => 20f + MathF.Sin( Time.Now * 2.4f ) * 10f;
+
+	public float GlowAAlpha => 0.5f + MathF.Sin( Time.Now * 0.5f ) * 0.3f;
+	public float GlowBAlpha => 0.45f + MathF.Sin( Time.Now * 0.4f + 2f ) * 0.25f;
+
+	public struct MoteView
+	{
+		public float LeftPercent;
+		public float Bottom;
+		public float Opacity;
+		public float Size;
+		public bool IsEmber;
+	}
+
+	/// <summary>
+	/// Ash drifting down from a fire, with a few glowing embers still rising through it - computed
+	/// per-mote from Time.Now rather than a CSS animation (same reasoning as the rest of this
+	/// file: CSS @keyframes didn't reliably render here). Each mote has a fixed left position and
+	/// duration derived from its index so it's stable frame to frame, and loops via modulo.
+	/// Roughly 1 in 4 are embers (small, warm, rising fast); the rest are ash (larger, cooler grey,
+	/// sinking slowly with a gentle horizontal sway) - a mix that reads as "ash from a fire"
+	/// instead of a uniform shower of sparks.
+	/// </summary>
+	public IEnumerable<MoteView> Motes
+	{
+		get
+		{
+			for ( int i = 0; i < MoteCount; i++ )
+			{
+				var isEmber = i % 4 == 0;
+				var duration = isEmber ? (3f + (i % 4) * 0.5f) : (6.5f + (i % 5) * 1.4f);
+				var phase = i * 0.71f * duration;
+				var t = ((Time.Now + phase) % duration) / duration;
+
+				var baseLeft = (3f + i * 6.1f) % 96f;
+				var sway = MathF.Sin( Time.Now * 0.6f + i * 1.7f ) * (isEmber ? 1.5f : 4f);
+				var left = System.Math.Clamp( baseLeft + sway, 0f, 98f );
+
+				float bottom;
+				float opacity;
+
+				if ( isEmber )
+				{
+					// Rises fast and flickers, same as before but quicker so it doesn't feel sluggish.
+					bottom = t * 600f - 10f;
+					var flicker = 0.6f + MathF.Sin( Time.Now * 10f + i ) * 0.3f;
+					opacity = (t < 0.1f ? (t / 0.1f) : (t > 0.82f ? (1f - t) / 0.18f : 1f)) * flicker;
+				}
+				else
+				{
+					// Ash flake: starts high and settles downward slowly, like it's falling out of
+					// smoke rather than rising out of embers.
+					bottom = (1f - t) * 560f + 15f;
+					opacity = (t < 0.08f ? (t / 0.08f) : (t > 0.88f ? (1f - t) / 0.12f : 1f)) * 0.5f;
+				}
+
+				yield return new MoteView
+				{
+					LeftPercent = left,
+					Bottom = bottom,
+					Opacity = MathF.Max( 0f, opacity ),
+					Size = isEmber ? 3f : (3f + (i % 3) * 1.2f),
+					IsEmber = isEmber,
+				};
+			}
+		}
+	}
+
+	// Every button on this screen plays the same UI click cue as the first line of its handler -
+	// simplest, lowest-risk way to cover every onclick in this file without introducing an
+	// unproven inline-lambda-in-markup pattern this codebase has no precedent for.
 	void PlayClicked()
 	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		PlayerPreviewCamera.Instance?.SetActive( false );
+		PlayerPreviewCamera.Instance?.SetAsMainCamera( false );
+		PlayerPreviewRotator.Instance?.SetVisible( false );
 		_screen = MenuScreen.Root;
 		GameManager.Instance?.StartGame();
 	}
 
-	void GoToHowToPlay() => _screen = MenuScreen.HowToPlay;
-	void GoToSettings() => _screen = MenuScreen.Settings;
-	void GoToRoot() => _screen = MenuScreen.Root;
+	void GoToHowToPlay()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		_screen = MenuScreen.HowToPlay;
+	}
 
-	void VolumeDown() => Settings.SetMasterVolume( Settings.MasterVolume - 0.1f );
-	void VolumeUp() => Settings.SetMasterVolume( Settings.MasterVolume + 0.1f );
+	void GoToSettings()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		_screen = MenuScreen.Settings;
+	}
+
+	void GoToRoot()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+
+		if ( _screen == MenuScreen.Customize )
+		{
+			PlayerPreviewCamera.Instance?.SetActive( false );
+			PlayerPreviewCamera.Instance?.SetAsMainCamera( false );
+			PlayerPreviewRotator.Instance?.SetVisible( false );
+		}
+
+		_screen = MenuScreen.Root;
+	}
+
+	void GoToCustomize()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		_screen = MenuScreen.Customize;
+		PlayerPreviewCamera.Instance?.SetActive( true );
+		PlayerPreviewCamera.Instance?.SetAsMainCamera( true );
+		PlayerPreviewRotator.Instance?.SetVisible( true );
+
+		// Push the already-saved outfit onto the preview stand right away - otherwise it only shows
+		// up after the first slot click, since Cycle() is what triggers ApplyToLivePlayerIfPresent
+		// and nothing calls it just from opening the screen.
+		Outfit.ApplyTo( PlayerPreviewRotator.Instance?.BodyRenderer );
+	}
+
+	// --- Customize screen: dedicated no-arg method per slot per direction (no lambda-in-onclick -
+	// this codebase has no precedent for that pattern, plain named methods are the proven path). ---
+
+	PlayerOutfit Outfit => PlayerOutfit.Instance;
+
+	string SkinLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Skin ) ?? "Default";
+	string TopLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Top ) ?? "None";
+	string BottomLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Bottom ) ?? "None";
+	string ShoesLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Shoes ) ?? "None";
+	string HeadLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Head ) ?? "None";
+	string AccessoryLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Accessory ) ?? "None";
+
+	void SkinPrev() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CyclePrev( PlayerOutfit.Slot.Skin ); }
+	void SkinNext() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CycleNext( PlayerOutfit.Slot.Skin ); }
+	void TopPrev() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CyclePrev( PlayerOutfit.Slot.Top ); }
+	void TopNext() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CycleNext( PlayerOutfit.Slot.Top ); }
+	void BottomPrev() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CyclePrev( PlayerOutfit.Slot.Bottom ); }
+	void BottomNext() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CycleNext( PlayerOutfit.Slot.Bottom ); }
+	void ShoesPrev() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CyclePrev( PlayerOutfit.Slot.Shoes ); }
+	void ShoesNext() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CycleNext( PlayerOutfit.Slot.Shoes ); }
+	void HeadPrev() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CyclePrev( PlayerOutfit.Slot.Head ); }
+	void HeadNext() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CycleNext( PlayerOutfit.Slot.Head ); }
+	void AccessoryPrev() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CyclePrev( PlayerOutfit.Slot.Accessory ); }
+	void AccessoryNext() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CycleNext( PlayerOutfit.Slot.Accessory ); }
+
+	void RotateLeft() { GameSettings.PlaySound( "sounds/ui/click.sound" ); PlayerPreviewRotator.Instance?.Nudge( -30f ); }
+	void RotateRight() { GameSettings.PlaySound( "sounds/ui/click.sound" ); PlayerPreviewRotator.Instance?.Nudge( 30f ); }
+
+	void VolumeDown()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.SetMasterVolume( Settings.MasterVolume - 0.1f );
+	}
+
+	void VolumeUp()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.SetMasterVolume( Settings.MasterVolume + 0.1f );
+	}
 
 	void CycleResolution()
 	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
 		Settings.CycleResolution();
 	}
 
 	void ToggleFullscreen()
 	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
 		Settings.SetFullscreen( !Settings.Fullscreen );
 	}
 
+	// The (int)(Time.Now * 30) bucket forces a rebuild ~30x/sec while the menu is up so all the
+	// Time.Now-driven inline styles above actually animate - without it BuildHash only changes when
+	// _screen/Settings change, and the menu would render once and freeze (same technique Hud.razor
+	// uses for its own continuous effects). Bumped from 12 to 30: 12 rebuilds/sec was visibly
+	// choppy for the rising/falling motes in particular, reported as "slow and laggy".
 	protected override int BuildHash() => System.HashCode.Combine(
-		Visible, _screen, Settings.MasterVolume, Settings.ResolutionIndex, Settings.Fullscreen );
+		Visible, _screen, Settings.MasterVolume, Settings.ResolutionIndex, Settings.Fullscreen,
+		Outfit.Version,
+		Visible ? (int)(Time.Now * 30) : 0 );
 }
 
 <style>
@@ -160,41 +416,42 @@
 	.menu-root.visible {
 		opacity: 1;
 		pointer-events: all;
-		background: radial-gradient(ellipse at center, rgba(30,14,16,0.55) 0%, rgba(6,4,7,0.94) 100%);
+		/* Fully opaque (not 0.96) - the game scene behind this panel shouldn't be visible at all
+		   until Play is pressed, not even the faint sliver a slightly-transparent backdrop let
+		   through. */
+		background-color: rgba(9,6,8,1);
+	}
+
+	/* Customize screen shifts the panel to the left and shows nothing but the plain black
+	   background + the dedicated PlayerPreviewCamera viewport (see bar.scene) on the right - no
+	   ambient glow/ash competing with it. */
+	.menu-root.customize-mode {
+		justify-content: flex-start;
+		padding-left: 6%;
+	}
+
+	.menu-root.customize-mode.visible {
+		background-color: rgba(9,6,8,0.0);
 	}
 
 	.glow {
 		position: absolute;
 		width: 900px;
 		height: 900px;
-		border-radius: 900px;
+		border-radius: 50%;
 		pointer-events: none;
 	}
 
 	.glow-a {
-		left: -250px;
-		top: -300px;
-		background: radial-gradient(ellipse at center, rgba(224,48,58,0.20) 0%, transparent 70%);
-		animation: glow-pulse-a 7s ease-in-out infinite;
+		left: -450px;
+		top: -470px;
+		background-image: radial-gradient( circle, rgba(224,48,58,0.9) 0%, rgba(224,48,58,0.35) 30%, rgba(224,48,58,0.08) 55%, rgba(224,48,58,0) 72% );
 	}
 
 	.glow-b {
-		right: -300px;
-		bottom: -350px;
-		background: radial-gradient(ellipse at center, rgba(255,180,60,0.14) 0%, transparent 70%);
-		animation: glow-pulse-b 9s ease-in-out infinite;
-	}
-
-	@@keyframes glow-pulse-a {
-		0% { opacity: 0.6; }
-		50% { opacity: 1; }
-		100% { opacity: 0.6; }
-	}
-
-	@@keyframes glow-pulse-b {
-		0% { opacity: 0.5; }
-		50% { opacity: 0.9; }
-		100% { opacity: 0.5; }
+		right: -470px;
+		bottom: -510px;
+		background-image: radial-gradient( circle, rgba(255,180,60,0.8) 0%, rgba(255,180,60,0.3) 30%, rgba(255,180,60,0.06) 55%, rgba(255,180,60,0) 72% );
 	}
 
 	.motes {
@@ -206,36 +463,16 @@
 
 	.mote {
 		position: absolute;
-		width: 4px;
-		height: 4px;
-		border-radius: 4px;
-		background-color: rgba(255,200,120,0.55);
-		bottom: -20px;
-		animation-name: mote-rise;
-		animation-timing-function: linear;
-		animation-iteration-count: infinite;
+		border-radius: 50%;
+		pointer-events: none;
 	}
 
-	.mote-0 { left: 4%; animation-duration: 11s; animation-delay: 0s; }
-	.mote-1 { left: 11%; animation-duration: 14s; animation-delay: 1.2s; }
-	.mote-2 { left: 18%; animation-duration: 9s; animation-delay: 2.4s; }
-	.mote-3 { left: 26%; animation-duration: 13s; animation-delay: 0.6s; }
-	.mote-4 { left: 34%; animation-duration: 10s; animation-delay: 3.1s; }
-	.mote-5 { left: 42%; animation-duration: 15s; animation-delay: 1.8s; }
-	.mote-6 { left: 50%; animation-duration: 8s; animation-delay: 2.9s; }
-	.mote-7 { left: 58%; animation-duration: 12s; animation-delay: 0.3s; }
-	.mote-8 { left: 66%; animation-duration: 11s; animation-delay: 3.6s; }
-	.mote-9 { left: 74%; animation-duration: 9.5s; animation-delay: 1.5s; }
-	.mote-10 { left: 82%; animation-duration: 13.5s; animation-delay: 2.1s; }
-	.mote-11 { left: 89%; animation-duration: 10.5s; animation-delay: 0.9s; }
-	.mote-12 { left: 95%; animation-duration: 14.5s; animation-delay: 3.3s; }
-	.mote-13 { left: 71%; animation-duration: 12.5s; animation-delay: 4.1s; }
+	.mote-ember {
+		background-color: rgba(255,140,55,0.9);
+	}
 
-	@@keyframes mote-rise {
-		0% { transform: translateY(0px); opacity: 0; }
-		10% { opacity: 0.8; }
-		90% { opacity: 0.5; }
-		100% { transform: translateY(-620px); opacity: 0; }
+	.mote-ash {
+		background-color: rgba(198,194,188,0.65);
 	}
 
 	.panel {
@@ -249,18 +486,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: stretch;
-		animation: panel-in 0.5s ease, panel-glow 4s ease-in-out 0.5s infinite;
-	}
-
-	@@keyframes panel-in {
-		0% { opacity: 0; transform: scale(0.92) translateY(14px); }
-		100% { opacity: 1; transform: scale(1) translateY(0px); }
-	}
-
-	@@keyframes panel-glow {
-		0% { box-shadow: 0 0 18px rgba(224,48,58,0.10), 0 10px 40px rgba(0,0,0,0.5); }
-		50% { box-shadow: 0 0 34px rgba(224,48,58,0.28), 0 10px 40px rgba(0,0,0,0.5); }
-		100% { box-shadow: 0 0 18px rgba(224,48,58,0.10), 0 10px 40px rgba(0,0,0,0.5); }
+		transition: opacity 0.3s ease, transform 0.3s ease;
 	}
 
 	.accent-bar {
@@ -270,7 +496,7 @@
 		width: 120px;
 		height: 3px;
 		margin-left: -60px;
-		background: linear-gradient(to right, rgba(224,48,58,0.0) 0%, rgba(224,48,58,0.9) 50%, rgba(224,48,58,0.0) 100%);
+		background-color: rgba(224,48,58,0.75);
 	}
 
 	.corner {
@@ -313,6 +539,8 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
+		text-align: center;
+		width: 100%;
 		margin-bottom: 28px;
 		padding: 8px 0 4px 0;
 	}
@@ -322,32 +550,21 @@
 		white-space: nowrap;
 		text-align: center;
 		width: 100%;
+		color: white;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.title-line1 {
-		color: white;
 		font-size: 26px;
 		letter-spacing: 10px;
 		margin-bottom: 4px;
-		animation: neon-flicker 3.4s ease-in-out infinite;
 	}
 
 	.title-line2 {
-		color: white;
 		font-size: 46px;
 		letter-spacing: 5px;
-		animation: neon-flicker 3.4s ease-in-out infinite;
-	}
-
-	@@keyframes neon-flicker {
-		0%   { text-shadow: 0 2px 10px black, 0 0 10px rgba(224,48,58,0.9), 0 0 26px rgba(224,48,58,0.6), 0 0 46px rgba(224,48,58,0.35); }
-		42%  { text-shadow: 0 2px 10px black, 0 0 10px rgba(224,48,58,0.9), 0 0 26px rgba(224,48,58,0.6), 0 0 46px rgba(224,48,58,0.35); }
-		44%  { text-shadow: 0 2px 6px black, 0 0 4px rgba(224,48,58,0.4); }
-		46%  { text-shadow: 0 2px 10px black, 0 0 10px rgba(224,48,58,0.9), 0 0 26px rgba(224,48,58,0.6), 0 0 46px rgba(224,48,58,0.35); }
-		87%  { text-shadow: 0 2px 10px black, 0 0 10px rgba(224,48,58,0.9), 0 0 26px rgba(224,48,58,0.6), 0 0 46px rgba(224,48,58,0.35); }
-		89%  { text-shadow: 0 2px 6px black, 0 0 4px rgba(224,48,58,0.4); }
-		91%  { text-shadow: 0 2px 10px black, 0 0 10px rgba(224,48,58,0.9), 0 0 26px rgba(224,48,58,0.6), 0 0 46px rgba(224,48,58,0.35); }
-		100% { text-shadow: 0 2px 10px black, 0 0 10px rgba(224,48,58,0.9), 0 0 26px rgba(224,48,58,0.6), 0 0 46px rgba(224,48,58,0.35); }
 	}
 
 	.nav {
@@ -366,6 +583,10 @@
 		border-radius: 6px;
 		cursor: pointer;
 		margin-bottom: 10px;
+		text-align: center;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		transition: background-color 0.15s ease, transform 0.15s ease;
 	}
 
@@ -379,7 +600,6 @@
 		color: white;
 		font-size: 18px;
 		padding: 16px 0;
-		animation: button-pulse 2.2s ease-in-out infinite;
 	}
 
 	.nav-button.primary:hover {
@@ -391,18 +611,13 @@
 		margin-bottom: 0;
 	}
 
-	@@keyframes button-pulse {
-		0% { box-shadow: 0 0 0px rgba(224,48,58,0.0); }
-		50% { box-shadow: 0 0 22px rgba(224,48,58,0.55); }
-		100% { box-shadow: 0 0 0px rgba(224,48,58,0.0); }
-	}
-
 	.sub-title {
 		color: rgba(255,255,255,0.45);
 		font-size: 12px;
 		font-weight: 800;
 		letter-spacing: 3px;
 		margin-bottom: 14px;
+		text-align: center;
 	}
 
 	.controls {
@@ -442,6 +657,7 @@
 		font-size: 12px;
 		line-height: 1.5;
 		margin-bottom: 16px;
+		text-align: center;
 	}
 
 	.setting-row {
@@ -522,12 +738,54 @@
 		background-color: rgba(255,255,255,0.12);
 	}
 
+	.customize-list {
+		display: flex;
+		flex-direction: column;
+		margin-bottom: 4px;
+	}
+
+	.customize-row {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		background-color: rgba(255,255,255,0.05);
+		border-radius: 8px;
+		padding: 10px 14px;
+		margin-bottom: 8px;
+	}
+
+	.customize-label {
+		color: rgba(255,255,255,0.8);
+		font-size: 12px;
+		font-weight: 800;
+		letter-spacing: 1px;
+	}
+
+	.customize-control {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+	}
+
+	.customize-value {
+		width: 150px;
+		color: #ffd257;
+		font-size: 12px;
+		font-weight: 700;
+		text-align: center;
+		margin: 0 8px;
+		white-space: nowrap;
+		overflow: hidden;
+	}
+
 	.settings-note {
 		color: rgba(255,255,255,0.35);
 		font-size: 11px;
 		font-style: italic;
 		line-height: 1.4;
 		margin-bottom: 14px;
+		text-align: center;
 	}
 
 	.footer {
