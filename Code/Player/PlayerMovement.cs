@@ -29,13 +29,6 @@ public class PlayerMovement : Component
 		if ( _cc is null )
 			return;
 
-		// Real freeze-frame on impact (see GameEvents.IsHitStopped) - skip movement entirely for the
-		// tiny window so the player visibly stops dead rather than easing to a stop like the other
-		// early-outs below do. Velocity/position are left exactly as they were; motion just resumes
-		// where it left off once the window ends.
-		if ( GameEvents.IsHitStopped )
-			return;
-
 		if ( GameManager.Instance is not null && GameManager.Instance.State != RunState.Playing )
 		{
 			// Let the character settle to a stop when the run is over.

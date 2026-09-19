@@ -261,8 +261,7 @@ public class PlayerCombat : Component
 	}
 
 	/// <summary>Advances the active finisher on its absolute tick schedule. Everything uses
-	/// Time.Now threshold checks (not Time.Delta accumulation) so hit-stop dips and frame spikes
-	/// can't desync the beats.</summary>
+	/// Time.Now threshold checks (not Time.Delta accumulation) so frame spikes can't desync the beats.</summary>
 	void DriveActiveFinisher()
 	{
 		var f = _activeFinisher;
@@ -328,8 +327,10 @@ public class PlayerCombat : Component
 
 	void DriveStrikeTicks( FinisherDefinition f, float now )
 	{
+		Log.Info("CALLED");
 		while ( _nextTickIndex < f.StrikeCount && now >= _finisherStartTime + _nextTickIndex * f.StrikeInterval )
 		{
+			Log.Info( "HIT" );
 			DoRapidStrike( f, _nextTickIndex );
 			_nextTickIndex++;
 		}
@@ -362,9 +363,6 @@ public class PlayerCombat : Component
 		var facing = WorldRotation.Forward;
 		var hits = HitDetector.FindEnemies( origin, facing, f.Range, f.ArcDegrees );
 
-		if ( hits.Count == 0 )
-			return;
-
 		foreach ( var enemy in hits )
 		{
 			// Small knockback + long pulse stagger keeps the crowd inside the ring so all three
@@ -382,9 +380,6 @@ public class PlayerCombat : Component
 		var origin = WorldPosition;
 		var facing = WorldRotation.Forward;
 		var hits = HitDetector.FindEnemies( origin, facing, f.Range, f.StrikeArcDegrees );
-
-		if ( hits.Count == 0 )
-			return;
 
 		var damage = isFinal ? f.Damage * f.FinalHitDamageMultiplier : f.Damage;
 		var knockback = isFinal ? f.FinalHitKnockback : 0f;

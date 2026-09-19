@@ -21,6 +21,10 @@ public static class GameEvents
 	public static event Action<int> DrinkTriggered;
 	public static void RaiseDrinkTriggered( int glassNumber ) => DrinkTriggered?.Invoke( glassNumber );
 
+	/// <summary>Fired when the player presses the sober-up button (F) and a hangover kicks in.</summary>
+	public static event Action SoberUpPerformed;
+	public static void RaiseSoberUpPerformed() => SoberUpPerformed?.Invoke();
+
 	/// <summary>Fired when drunkenness enters the dangerous "Last Call" band.</summary>
 	public static event Action LastCallEntered;
 	public static void RaiseLastCallEntered() => LastCallEntered?.Invoke();
@@ -70,54 +74,6 @@ public static class GameEvents
 	/// <summary>Ask the camera/hit-feedback system to shake. Amount is roughly in world units, duration in seconds.</summary>
 	public static event Action<float, float> ShakeRequested;
 	public static void RaiseShakeRequested( float amount, float duration ) => ShakeRequested?.Invoke( amount, duration );
-
-	/// <summary>Ask for a brief hit-stop (time scale dip). Duration in seconds (real time).</summary>
-	public static event Action<float> HitStopRequested;
-	public static void RaiseHitStopRequested( float duration )
-	{
-		_hitStopUntil = MathF.Max( _hitStopUntil, Time.Now + duration );
-		HitStopRequested?.Invoke( duration );
-	}
-
-	// --- Hit-stop gate (see RaiseHitStopRequested above) ---
-	static float _hitStopUntil = -1f;
-
-	/// <summary>Reset all run-scoped static state. Must be called when a run ends or restarts so
-	/// stale wall-clock gates (e.g. _hitStopUntil) don't leak into the next run.</summary>
-	public static void ResetState()
-	{
-		_hitStopUntil = -1f;
-	}
-
-	/// <summary>
-	/// True for the brief window after a hit-stop request. Movement/animation-driving systems
-	/// (PlayerMovement, PlayerAnimationDriver, EnemyBase) check this at the top of their update and
-	/// skip it entirely, producing a real freeze-frame on impact - previously RaiseHitStopRequested
-	/// only ever turned into extra camera shake (see IsoCameraRig.OnHitStopRequested) and never
-	/// actually paused anything, despite the doc comment above promising a "time scale dip".
-	///
-	/// Deliberately a simple wall-clock gate (same pattern as EnemyBase.FreezeUntil) rather than an
-	/// actual Scene.TimeScale dip - a real timescale change would hit everything uniformly (UI,
-	/// camera follow-lerp, VFX timers, menu transitions) and risks the kind of engine-wide weirdness
-	/// this project has deliberately avoided elsewhere (see DrinkMeter's doc comment on the same
-	/// decision). Camera shake/VFX are intentionally NOT gated by this - they keep playing through
-	/// the freeze, which is what makes the hit still read as *impactful* rather than the game just
-	/// stuttering.
-	/// </summary>
-	public static bool IsHitStopped => Time.Now < _hitStopUntil;
-
-	/// <summary>
-	/// Clears the hit-stop gate. Must be called once when a fresh Play session starts (see
-	/// GameManager.OnStart) - this is a bare static field with no GameObject lifecycle to reset it
-	/// automatically. Without this, pressing Stop then Play again in the editor reuses the same
-	/// loaded assembly (static fields survive that, unlike component instance fields whose
-	/// GameObjects get recreated), so a hit-stop timestamp left over from the previous session could
-	/// sit far ahead of the new session's Time.Now (which restarts near zero) and leave IsHitStopped
-	/// stuck true for the entire next session - freezing player movement/animation and every enemy's
-	/// AI indefinitely, while anything NOT gated by it (like aiming) kept working fine. That exact
-	/// mismatch is what this reset prevents.
-	/// </summary>
-	public static void ResetHitStop() => _hitStopUntil = -1f;
 
 	/// <summary>Fired every time damage actually lands on anyone (enemy or player), for the floating
 	/// damage number HUD. Args = world position to float the number up from, the amount, and what

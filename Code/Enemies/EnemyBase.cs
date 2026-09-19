@@ -6,7 +6,7 @@ namespace DrunkenBarFight;
 /// <summary>
 /// Shared brain for every enemy archetype: a self-registering list (used by HitDetector instead
 /// of physics queries), simple kinematic chase-and-attack AI, knockback, and the freeze-frame
-/// stagger that doubles as our hit-stop. Archetypes only override SetDefaults() and, optionally,
+/// stagger. Archetypes only override SetDefaults() and, optionally,
 /// ResolveAttack()/OnKilled() for special behaviour.
 /// </summary>
 public abstract class EnemyBase : Component
@@ -132,10 +132,23 @@ public abstract class EnemyBase : Component
 	// Knockback is tuned to look right as a kinematic slide (WorldPosition += velocity * Time.Delta
 	// with drag decay). On death it never reaches the ragdoll directly - the ragdoll toss is driven
 	// purely by the killing hit's damage, proportionally, so a heavy haymaker visibly launches the
-	// body while a weak tap just tips it over. See ApplyRagdollKick.
-	const float RagdollDamageImpulseScale = 3f;
-	const float RagdollDamageLiftScale = 1.2f;
-	const float RagdollDamageLiftCap = 40f;
+	// body while a weak tap just tips it over. See ApplyRagdollKick. These scales were bumped to
+	// give kills a genuinely satisfying toss: a mid-weight hit now sends the body flying instead
+	// of tipping, and the lift cap was raised so heavy finishers get real hangtime.
+	// Kill toss tuned to look right as a speed-proportional shove. Scales multiplied by 100 for a
+	// TEMPORARY verification pass (this is only to prove the corpse actually launches now that the
+	// impulse lands on the resolved torso body - see TryApplyRagdollToss). Revert to 5f / 1.7f once
+	// confirmed.
+	const float RagdollDamageImpulseScale = 1000f;
+	const float RagdollDamageLiftScale = 340f;
+	const float RagdollDamageLiftCap = 60f;
+
+	// The kill toss is queued at death and applied the first frame ModelPhysics actually has its
+	// per-bone bodies. Those bodies don't exist synchronously inside Components.Create - they're
+	// spawned on a later engine tick - so an immediate lookup (the old ApplyRagdollKick behavior)
+	// found zero bodies and every corpse just dropped in place. See TryApplyRagdollToss.
+	Vector3 _ragdollTossImpulse;
+	bool _ragdollTossPending;
 
 	// Citizen ragdoll torso candidates, best to worst. The skeleton uses spine_0..3 names (see
 	// UpperBodyBones) and ModelPhysics builds one physics body per bone, matched by bone index -
@@ -395,6 +408,10 @@ public abstract class EnemyBase : Component
 	{
 		if ( IsDead )
 		{
+			// Ragdoll kill toss: applies the queued impulse the first frame physics bodies exist
+			// (ModelPhysics spawns them a tick after Components.Create, see QueueRagdollKick).
+			TryApplyRagdollToss();
+
 			// Physics (or nothing, if ragdoll setup failed) owns position/rotation from here on -
 			// don't fight it with the manual knockback slide below.
 			UpdateDeathVisual();
@@ -442,13 +459,6 @@ public abstract class EnemyBase : Component
 		}
 
 		if ( GameManager.Instance is not null && GameManager.Instance.State != RunState.Playing )
-			return;
-
-		// Real freeze-frame on impact (see GameEvents.IsHitStopped) - pauses fall/attack-blend/AI for
-		// every enemy, not just whichever one was hit, so the whole scene visibly holds still for a
-		// beat instead of only camera shake selling the impact. Knockback slide above still plays
-		// through it - that's an existing deliberate exception (see its own comment) for stagger too.
-		if ( GameEvents.IsHitStopped )
 			return;
 
 		// Physics owns position while falling from an elevated spawn point - don't run attacks/AI
@@ -754,7 +764,7 @@ public abstract class EnemyBase : Component
 			// Toss the torso away from the player, scaled by the killing blow's damage. Split from
 			// the knockback velocity so a haymaker-finisher kill launches the body while a weak
 			// tap just tips it over - the impulse lands on the torso bone only, not the whole ragdoll.
-			ApplyRagdollKick();
+			QueueRagdollKick();
 		}
 		catch { }
 
@@ -776,11 +786,11 @@ public abstract class EnemyBase : Component
 		GameEvents.RaiseEnemyKilled( info );
 	}
 
-	/// <summary>Applies the damage-proportional kill toss to the ragdoll's torso. Direction is flat
-	/// away from the player (reversed facing if the kill happens dead-on), plus a damage-scaled
-	/// upward lift so heavier kills visibly launch the body. Best-effort: if the torso body can't
-	/// be resolved the ragdoll just drops in place.</summary>
-	void ApplyRagdollKick()
+	/// <summary>Computes the damage-proportional kill toss (flat away from the player, reversed
+	/// facing if the kill happens dead-on, plus a damage-scaled upward lift) and stashes it as a
+	/// pending impulse. It's applied later by TryApplyRagdollToss the moment the ragdoll's physics
+	/// bodies exist.</summary>
+	void QueueRagdollKick()
 	{
 		var playerPos = PlayerStats.Local?.WorldPosition;
 		var away = playerPos is not null ? WorldPosition - playerPos.Value : -WorldRotation.Forward;
@@ -791,11 +801,27 @@ public abstract class EnemyBase : Component
 
 		var horiz = away * ( _lastHitDamage * RagdollDamageImpulseScale );
 		var lift = System.MathF.Min( _lastHitDamage, RagdollDamageLiftCap ) * RagdollDamageLiftScale;
-		var impulse = new Vector3( horiz.x, horiz.y, lift );
+		_ragdollTossImpulse = new Vector3( horiz.x, horiz.y, lift );
+		_ragdollTossPending = true;
+
+		TryApplyRagdollToss();
+	}
+
+	/// <summary>Applies a pending kill toss to the ragdoll's torso body, once that body actually
+	/// exists. ModelPhysics spawns its per-bone bodies a tick AFTER Components.Create returns, so
+	/// this is called from the dead update every frame until the impulse lands (idempotent: clears
+	/// the pending flag on first success, so the body never takes a double shove).</summary>
+	void TryApplyRagdollToss()
+	{
+		if ( !_ragdollTossPending )
+			return;
 
 		var body = TorsoRagdollBody();
-		if ( body is not null )
-			body.Value.Component.PhysicsBody.ApplyImpulse( impulse );
+		if ( body is null )
+			return;
+
+		body.Value.Component.PhysicsBody.ApplyImpulse( _ragdollTossImpulse );
+		_ragdollTossPending = false;
 	}
 
 	/// <summary>Resolves the ragdoll's torso physics body - the mid-spine body the kill toss pushes,

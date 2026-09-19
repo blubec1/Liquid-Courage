@@ -64,7 +64,7 @@
           "Bounciness": 0.3,
           "GroundAngle": 45,
           "Height": 64,
-          "IgnoreLayers": "ragdoll",
+          "IgnoreLayers": "",
           "OnComponentDestroy": null,
           "OnComponentDisabled": null,
           "OnComponentEnabled": null,
@@ -177,7 +177,13 @@
           "OnComponentUpdate": null,
           "PassiveDecayAmount": 1,
           "PassiveDecayInterval": 15,
-          "ShakeStartValue": 60
+          "ShakeStartValue": 60,
+          "SoberBaseDebuffDuration": 2,
+          "SoberMaxDamagePenalty": 0.45,
+          "SoberMaxDebuffDuration": 3,
+          "SoberMaxMovePenalty": 0.35,
+          "SoberRemoveFraction": 0.4,
+          "SoberUpCooldown": 3
         },
         {
           "__type": "DrunkenBarFight.ScoreSystem",
@@ -423,11 +429,7 @@
           "Flags": 0,
           "__version": 3,
           "AutoExposureEnabled": false,
-<<<<<<< HEAD
-          "ExposureCompensation": -0.5,
-=======
           "ExposureCompensation": 1,
->>>>>>> e6850f0c544fb28208cf418b26656af2bb9ce439
           "ExposureMethod": "RGB",
           "MaximumExposure": 2,
           "MinimumExposure": 1,
@@ -1282,7 +1284,7 @@
       "__version": 2,
       "Flags": 0,
       "Name": "map",
-      "Position": "-575.992065,-7.5175457,452.552826",
+      "Position": "-575.992065,-7.5175457,427.830109",
       "Rotation": "0,0,0,1",
       "Scale": "1,1,1",
       "Tags": "",
@@ -1450,9 +1452,6 @@
       ]
     },
     {
-<<<<<<< HEAD
-      "__guid": "68def5fc-c78e-4bda-9ab0-59b19b177b36",
-=======
       "__guid": "21ebdd3e-222f-4886-831f-77cb618a9274",
       "__version": 2,
       "Flags": 0,
@@ -1497,7 +1496,6 @@
     },
     {
       "__guid": "8aa43f38-281c-4117-a769-186dcf831ca4",
->>>>>>> e6850f0c544fb28208cf418b26656af2bb9ce439
       "__version": 2,
       "Flags": 0,
       "Name": "BarLights",

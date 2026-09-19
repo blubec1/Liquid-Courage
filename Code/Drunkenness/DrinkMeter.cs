@@ -13,7 +13,7 @@ public class DrinkMeter : Component
 {
 	public static DrinkMeter Local { get; private set; }
 
-	[Property, Group( "Tuning" )] public float MaxValue { get; set; } = 100f;
+	[Property, Group( "Tuning" )] public float MaxValue { get; set; } = 60f;
 	[Property, Group( "Tuning" )] public float ProgressPerKill { get; set; } = 22f;
 	[Property, Group( "Tuning" )] public float ProgressPerToughKillBonus { get; set; } = 15f;
 	[Property, Group( "Tuning" )] public float FreezeDuration { get; set; } = 0.9f;

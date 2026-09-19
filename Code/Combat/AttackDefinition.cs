@@ -33,7 +33,7 @@ public class AttackDefinition
 	/// <summary>Total width of the hit arc in degrees, centered on the player's facing direction.</summary>
 	public float ArcDegrees;
 
-	/// <summary>How strong the impact feedback is (0-1). Drives freeze-frame length, screenshake and enemy knockback scaling.</summary>
+	/// <summary>How strong the impact feedback is (0-1). Drives screenshake and enemy knockback scaling.</summary>
 	public float ImpactStrength;
 
 	/// <summary>Knockback speed applied to whatever it hits.</summary>
@@ -72,8 +72,8 @@ public class AttackDefinition
 
 	/// <summary>Empty/null = pick a sound off ImpactStrength's thresholds as normal (see
 	/// HitFeedback.PlayImpactSound). Set this to force a specific impact cue instead - used by Kick,
-	/// which wants the light-punch sound even though its ImpactStrength (tuned for shake/hitstop
-	/// feel, not sound selection) would otherwise land it in the "medium" bucket.</summary>
+	/// which wants the light-punch sound even though its ImpactStrength (tuned for shake feel, not
+	/// sound selection) would otherwise land it in the "medium" bucket.</summary>
 	public string ImpactSoundOverride;
 }
 
@@ -96,11 +96,13 @@ public static class AttackLibrary
 			Knockback = 90,
 			StaggerTime = 0.18f,
 		},
-		// Fully reworked into a pure "get off me" panic button, zero damage - Punch/Heavy are the
-		// damage tools, Kick is only about clearing space. Knockback bumped again for a real, visible
-		// shove. The guarantee that kicked enemies can't immediately hit back is still StaggerTime,
-		// not distance: EnemyBase freezes an enemy's whole AI (including attack resolution) for
-		// StaggerTime regardless of where the knockback leaves it.
+		// A "get off me" panic button with real damage behind it - the wide arc and huge knockback
+		// clear space, but the kick also pays out, so it's never a pure zero-damage push. The
+		// guarantee that kicked enemies can't immediately hit back is still StaggerTime, not
+		// distance: EnemyBase freezes an enemy's whole AI (including attack resolution) for
+		// StaggerTime regardless of where the knockback leaves it. Damage also feeds the ragdoll
+		// kill toss (see EnemyBase.RagdollDamageImpulseScale), so a killing kick visibly launches
+		// the body instead of just dropping it in place.
 		[AttackId.Kick] = new()
 		{
 			Id = AttackId.Kick,
@@ -109,7 +111,7 @@ public static class AttackLibrary
 			Animation = "Roundhouse_Kick_2",
 			AnimationDuration = 0.6f,
 			Name = "Kick",
-			Damage = 0,
+			Damage = 12,
 			Cooldown = 0.44f,
 			Recovery = 0.18f,
 			Range = 80,
@@ -117,10 +119,9 @@ public static class AttackLibrary
 			ImpactStrength = 0.4f,
 			Knockback = 600,
 			StaggerTime = 0.65f,
-			// Covers a tightly packed crowd 2-3 deep around the player - well past the 80-unit hit
-			// Range above on purpose (see RadialPushRadius's doc comment: this is deliberately NOT the
-			// same knob as Range, which stays a normal frontal-arc hitbox for damage/flash purposes).
-			RadialPushRadius = 220,
+			// Radial push now matches the hit Range exactly (both 80) - the knockback reaches no
+			// further than the arc that damages, so the shove is honest to what you actually hit.
+			RadialPushRadius = 80,
 			// User-requested: kick uses the same impact sound as the light punch.
 			ImpactSoundOverride = "sounds/combat/light_impact.sound",
 		},

@@ -34,6 +34,7 @@
 			<div class="drink-bar-bg">
 				<div class="drink-bar-fill" style="width:@((DrinkFraction * 100).ToString( "0.##" ))%;"></div>
 			</div>
+			<div class="drunk-num">DRUNK <span class="drunk-num-value">@DrunkValueText</span></div>
 		</div>
 
 		<div class="top-right">
@@ -151,6 +152,11 @@
 
 	// --- Drunkenness VFX (deliberately no numeric bar - see DrunkennessSystem) ---
 	public bool IsLastCall => DrunkennessSystem.Local?.IsLastCall ?? false;
+
+	// Raw drunk number for the HUD readout ONLY (deliberately just the value, no bar/percent -
+	// see the class doc comment on DrunkennessSystem: the number is a debug-facing readout, not a
+	// bar the player is meant to play off).
+	public string DrunkValueText => DrunkennessSystem.Local is null ? "0" : ((int)DrunkennessSystem.Local.Value).ToString();
 	public float BlackoutFraction => DrunkennessSystem.Local?.BlackoutFraction01 ?? 0f;
 	public bool ShowBlackout => BlackoutFraction > 0f;
 
@@ -224,9 +230,8 @@
 
 		// Extra "disorienting" punch layered on top of the plain damage-vignette flash above, only
 		// for hits big enough to matter (same 0.12 threshold HitFeedback/PlayPlayerHurt uses to pick
-		// its "heavy" cue) - lines up with the hit-stop freeze already active for the same instant
-		// (see GameEvents.IsHitStopped), so the screen visibly warps right when everything else
-		// pauses instead of the effects landing out of sync.
+		// its "heavy" cue) - timed against the damage flash so the screen warp reads in sync with the
+		// hit instead of the effects landing out of sync.
 		if ( fraction01 >= BigHitThreshold )
 		{
 			_chromaFlashStart = Time.Now;
@@ -527,10 +532,17 @@
 		_toastEndTime = Time.Now + 3.5f;
 	}
 
+	void OnSoberUpPerformed()
+	{
+		_toastText = "SOBER UP";
+		_toastEndTime = Time.Now + 1.6f;
+	}
+
 	protected override void OnStart()
 	{
 		GameEvents.Milestone += OnMilestone;
 		GameEvents.DrinkTriggered += OnDrinkTriggered;
+		GameEvents.SoberUpPerformed += OnSoberUpPerformed;
 		GameEvents.ComboHit += OnComboHit;
 		GameEvents.PlayerDamaged += OnPlayerDamaged;
 		GameEvents.DamageNumber += OnDamageNumber;
@@ -540,6 +552,7 @@
 	{
 		GameEvents.Milestone -= OnMilestone;
 		GameEvents.DrinkTriggered -= OnDrinkTriggered;
+		GameEvents.SoberUpPerformed -= OnSoberUpPerformed;
 		GameEvents.ComboHit -= OnComboHit;
 		GameEvents.PlayerDamaged -= OnPlayerDamaged;
 		GameEvents.DamageNumber -= OnDamageNumber;

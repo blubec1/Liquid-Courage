@@ -43,11 +43,6 @@ public class GameManager : Component
 	protected override void OnStart()
 	{
 		Instance = this;
-		GameEvents.ResetState();
-
-		// Must happen on every fresh Play session, not just StartGame/RestartRun - see
-		// GameEvents.ResetHitStop's doc comment for why a bare static field needs this at all.
-		GameEvents.ResetHitStop();
 
 		var player = Scene.GetAllComponents<PlayerMovement>().FirstOrDefault();
 		if ( player is not null )
@@ -118,7 +113,6 @@ public class GameManager : Component
 	{
 		ClearRunObjects();
 
-		GameEvents.ResetState();
 		ComboSystem.Local?.ResetRun();
 		DrunkennessSystem.Local?.ResetRun();
 		ScoreSystem.Local?.ResetRun();
@@ -186,7 +180,6 @@ public class GameManager : Component
 
 		ClearRunObjects();
 
-		GameEvents.ResetState();
 		ComboSystem.Local?.ResetRun();
 		DrunkennessSystem.Local?.ResetRun();
 		ScoreSystem.Local?.ResetRun();

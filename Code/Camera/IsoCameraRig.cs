@@ -67,14 +67,12 @@ public class IsoCameraRig : Component
 		_smoothedPosition = WorldPosition;
 
 		GameEvents.ShakeRequested += OnShakeRequested;
-		GameEvents.HitStopRequested += OnHitStopRequested;
 		GameEvents.RunStarted += OnRunStarted;
 	}
 
 	protected override void OnDestroy()
 	{
 		GameEvents.ShakeRequested -= OnShakeRequested;
-		GameEvents.HitStopRequested -= OnHitStopRequested;
 		GameEvents.RunStarted -= OnRunStarted;
 	}
 
@@ -89,11 +87,6 @@ public class IsoCameraRig : Component
 		_shakeAmount = MathF.Max( _shakeAmount * 0.4f, amount );
 		_shakeEndTime = MathF.Max( _shakeEndTime, Time.Now + duration );
 		_shakeDuration = MathF.Max( duration, 0.01f );
-	}
-
-	void OnHitStopRequested( float duration )
-	{
-		OnShakeRequested( 3f, duration * 1.5f );
 	}
 
 	protected override void OnUpdate()
