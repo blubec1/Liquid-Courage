@@ -34,7 +34,6 @@ public class PlayerCombat : Component
 	Vector3 _shockwaveOrigin;
 	Vector3 _shockwaveFacing;
 	readonly HashSet<EnemyBase> _finisherHitSet = new();
-	readonly Dictionary<EnemyBase, ( float damage, Vector3 pos )> _finisherByEnemy = new();
 
 	/// <summary>0 = just used an attack, 1 = ready to attack again. Drives the HUD cooldown bar under the crosshair.</summary>
 	public float CooldownFraction01
@@ -215,7 +214,6 @@ public class PlayerCombat : Component
 		_shockwaveOrigin = origin;
 		_shockwaveFacing = facing;
 		_finisherHitSet.Clear();
-		_finisherByEnemy.Clear();
 
 		// The finisher lock: the whole move becomes one cooldown, so IsReady blocks any further
 		// input (including another finisher) until it has played out, and the HUD bar fills nicely.
@@ -389,10 +387,9 @@ public class PlayerCombat : Component
 		}
 	}
 
-	/// <summary>Applies one tick of a timed finisher to one enemy - beats it as a finisher hit but
-	/// with the floating damage number suppressed (PlayerCombat aggregates one number per victim at
-	/// the end so a multi-jab row doesn't stack tiny numbers), and tracks the distinct hit count
-	/// for the completion report.</summary>
+	/// <summary>Applies one tick of a timed finisher to one enemy - beats it as a finisher hit, so
+	/// it raises the golden finisher damage number like any other finisher hit, and tracks the
+	/// distinct hit count for the completion report.</summary>
 	void ApplyFinisherHit( FinisherDefinition f, EnemyBase enemy, Vector3 origin, Vector3 facing, float damage, float knockback, float stagger )
 	{
 		if ( enemy is null || !enemy.IsValid || enemy.IsDead )
@@ -404,32 +401,18 @@ public class PlayerCombat : Component
 
 		var dealt = damage * _finisherDamageMult;
 
-		if ( _finisherByEnemy.TryGetValue( enemy, out var entry ) )
-		{
-			_finisherByEnemy[enemy] = ( entry.damage + dealt, entry.pos );
-		}
-		else
-		{
-			_finisherByEnemy[enemy] = ( dealt, enemy.WorldPosition );
-			_finisherHitSet.Add( enemy );
-		}
+		_finisherHitSet.Add( enemy );
 
-		enemy.ApplyHit( dealt, dir * knockback, stagger, fromFinisher: true, showDamageNumber: false );
+		enemy.ApplyHit( dealt, dir * knockback, stagger, fromFinisher: true );
 	}
 
-	/// <summary>Reports the finisher once, with one aggregated damage number per victim and the
-	/// distinct count of enemies hit across all ticks, then tears the state down. Fires on the
-	/// finisher's first connected hit only via the caller's distinct > 0 check, matching the old
-	/// whiff rule (a finisher that hit nobody pays no score).</summary>
+	/// <summary>Reports the finisher once with the distinct count of enemies hit across all ticks,
+	/// then tears the state down. Fires on the finisher's first connected hit only via the caller's
+	/// distinct > 0 check, matching the old whiff rule (a finisher that hit nobody pays no score).
+	/// Damage numbers are raised per tick by ApplyFinisherHit, not here.</summary>
 	void CompleteFinisher( FinisherDefinition finisher )
 	{
 		var distinct = _finisherHitSet.Count;
-
-		foreach ( var kv in _finisherByEnemy )
-		{
-			if ( kv.Key.IsValid )
-				GameEvents.RaiseDamageNumber( kv.Value.pos + Vector3.Up * 62f, kv.Value.damage, DamageNumberKind.Finisher );
-		}
 
 		if ( distinct > 0 )
 		{
@@ -445,7 +428,6 @@ public class PlayerCombat : Component
 	{
 		_activeFinisher = null;
 		_finisherHitSet.Clear();
-		_finisherByEnemy.Clear();
 	}
 
 	/// <summary>Only called once an attack actually connects - drives StyleSystem's variety bonus,

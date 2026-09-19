@@ -69,6 +69,7 @@ public abstract class EnemyBase : Component
 	bool _pendingWasFinisher;
 	bool _pendingWasEnvironmental;
 	float _deathStartTime = -1f;
+	float _lastHitDamage;
 
 	// --- Attack bone-blend state (mirrors PlayerAnimationDriver's DriveAttackBoneOverrides - see
 	// that file's doc comment for the full coordinate-space explanation. Kept local to EnemyBase
@@ -104,11 +105,18 @@ public abstract class EnemyBase : Component
 	const float FadeDuration = 1.8f;
 
 	// Knockback is tuned to look right as a kinematic slide (WorldPosition += velocity * Time.Delta
-	// with drag decay) - handed to a real physics ragdoll at full strength it launches the body
-	// across the map instead of a small, believable stumble. Heavily damp and clamp it - "small
-	// ragdoll" is the ask, not a catapult.
-	const float RagdollKnockbackScale = 0.1f;
-	const float MaxRagdollKnockbackSpeed = 60f;
+	// with drag decay). On death it never reaches the ragdoll directly - the ragdoll toss is driven
+	// purely by the killing hit's damage, proportionally, so a heavy haymaker visibly launches the
+	// body while a weak tap just tips it over. See ApplyRagdollKick.
+	const float RagdollDamageImpulseScale = 3f;
+	const float RagdollDamageLiftScale = 1.2f;
+	const float RagdollDamageLiftCap = 40f;
+
+	// Citizen ragdoll torso candidates, best to worst. The skeleton uses spine_0..3 names (see
+	// UpperBodyBones) and ModelPhysics builds one physics body per bone, matched by bone index -
+	// so spine_1 is the mid-torso body the kill toss lands on, with graceful fallbacks if a
+	// variant rig lacks it.
+	static readonly string[] RagdollTorsoCandidates = { "spine_1", "spine_2", "spine_0" };
 
 	protected virtual void SetDefaults() { }
 
@@ -569,14 +577,13 @@ public abstract class EnemyBase : Component
 			player.TakeDamage( Damage );
 	}
 
-	/// <summary>Called by combat code when this enemy is hit by an attack or finisher.
-	/// Multi-tick finishers pass showDamageNumber: false and raise one aggregated number per victim
-	/// themselves, so a 6-jab flurry doesn't stack six tiny floating numbers on the same enemy.</summary>
+	/// <summary>Called by combat code when this enemy is hit by an attack or finisher.</summary>
 	public void ApplyHit( float damage, Vector3 knockback, float staggerTime, bool fromFinisher = false, bool fromEnvironmental = false, bool showDamageNumber = true )
 	{
 		if ( IsDead )
 			return;
 
+		_lastHitDamage = damage;
 		CurrentHP -= damage;
 		FreezeUntil = System.MathF.Max( FreezeUntil, Time.Now + staggerTime );
 		_knockbackVelocity += knockback;
@@ -637,17 +644,10 @@ public abstract class EnemyBase : Component
 			// project auto-wires (AnimHelper -> renderer, etc.).
 			Components.Create<Sandbox.ModelPhysics>();
 
-			// Give the knockback some starting momentum to carry into the fall, heavily damped -
-			// see the constants' comment above.
-			var rigidbody = Components.Get<Rigidbody>();
-			if ( rigidbody is not null )
-			{
-				var ragdollKick = _knockbackVelocity * RagdollKnockbackScale;
-				if ( ragdollKick.Length > MaxRagdollKnockbackSpeed )
-					ragdollKick = ragdollKick.Normal * MaxRagdollKnockbackSpeed;
-
-				rigidbody.Velocity += ragdollKick;
-			}
+			// Toss the torso away from the player, scaled by the killing blow's damage. Split from
+			// the knockback velocity so a haymaker-finisher kill launches the body while a weak
+			// tap just tips it over - the impulse lands on the torso bone only, not the whole ragdoll.
+			ApplyRagdollKick();
 		}
 		catch { }
 
@@ -667,6 +667,65 @@ public abstract class EnemyBase : Component
 		Vfx.BloodSpatter( WorldPosition, 1.2f );
 
 		GameEvents.RaiseEnemyKilled( info );
+	}
+
+	/// <summary>Applies the damage-proportional kill toss to the ragdoll's torso. Direction is flat
+	/// away from the player (reversed facing if the kill happens dead-on), plus a damage-scaled
+	/// upward lift so heavier kills visibly launch the body. Best-effort: if the torso body can't
+	/// be resolved the ragdoll just drops in place.</summary>
+	void ApplyRagdollKick()
+	{
+		var playerPos = PlayerStats.Local?.WorldPosition;
+		var away = playerPos is not null ? WorldPosition - playerPos.Value : -WorldRotation.Forward;
+		away = new Vector3( away.x, away.y, 0 );
+		if ( away.Length < 0.01f )
+			away = -WorldRotation.Forward;
+		away = away.Normal;
+
+		var horiz = away * ( _lastHitDamage * RagdollDamageImpulseScale );
+		var lift = System.MathF.Min( _lastHitDamage, RagdollDamageLiftCap ) * RagdollDamageLiftScale;
+		var impulse = new Vector3( horiz.x, horiz.y, lift );
+
+		var body = TorsoRagdollBody();
+		if ( body is not null )
+			body.Value.Component.PhysicsBody.ApplyImpulse( impulse );
+	}
+
+	/// <summary>Resolves the ragdoll's torso physics body - the mid-spine body the kill toss pushes,
+	/// matched by bone index through ModelPhysics.Bodies (the older PhysicsGroup form reads null on
+	/// current builds). Falls back down the spine chain and finally to any body so the toss never
+	/// silently drops on a variant rig.</summary>
+	Sandbox.ModelPhysics.Body? TorsoRagdollBody()
+	{
+		try
+		{
+			var physics = Components.Get<Sandbox.ModelPhysics>();
+			if ( physics?.Bodies is null || physics.Bodies.Count == 0 )
+				return null;
+
+			var model = physics.Model ?? BodyRenderer?.Model;
+			if ( model?.Bones is not null )
+			{
+				foreach ( var name in RagdollTorsoCandidates )
+				{
+					var bone = model.Bones.GetBone( name );
+					if ( bone is null )
+						continue;
+
+					foreach ( var b in physics.Bodies )
+					{
+						if ( b.Bone == bone.Index )
+							return b;
+					}
+				}
+			}
+
+			return physics.Bodies[0];
+		}
+		catch
+		{
+			return null;
+		}
 	}
 
 	void UpdateDeathVisual()
