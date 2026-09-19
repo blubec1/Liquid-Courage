@@ -254,8 +254,11 @@ public class PlayerAnimationDriver : Component
 
 	public void PlayFinisher( FinisherDefinition def )
 	{
+		// Duration is the single source of truth (FinisherDefinition.Duration) - the animation,
+		// the damage tick schedule, and the input lock all agree, so the clip and the beats stay
+		// in sync instead of the old per-file fallback drifting apart.
 		_swingStartTime = Time.Now;
-		_swingDuration = def.AnimationDuration > 0f ? def.AnimationDuration : System.MathF.Max( 0.2f, def.StaggerTime * 0.6f + 0.2f );
+		_swingDuration = def.Duration;
 		_swingStrength = 1.2f;
 
 		_usingClipVisual = def.DisableBlending
