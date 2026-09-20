@@ -116,7 +116,7 @@ public static class AttackLibrary
 			Animation = "Roundhouse_Kick_2",
 			AnimationDuration = 0.6f,
 			Name = "Kick",
-			Damage = 20,
+			Damage = 15,
 			Cooldown = 0.44f,
 			Recovery = 0.18f,
 			Range = 80,
@@ -137,7 +137,6 @@ public static class AttackLibrary
 			Animation = "Hook_Punch_2",
 			AnimationDuration = 0.6f,
 			Name = "Heavy",
-			// Kick + 7 (see AttackId.Kick above) - request.
 			Damage = 27,
 			Cooldown = 0.9f,
 			Recovery = 0.35f,

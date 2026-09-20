@@ -8,7 +8,8 @@ namespace DrunkenBarFight;
 /// file via FileSystem.Data (the documented sandboxed save-data API), loaded once and kept as a
 /// singleton so both the main menu and pause menu read/write the same values.
 ///
-/// Master volume actually works (applied to every Sound.Play call via PlaySound() below).
+/// Master and SFX volume actually work (applied to every Sound.Play call via PlaySound() below);
+/// Music volume is pushed at the engine's global music player in the same setters.
 /// Resolution/fullscreen are saved as a preference but NOT applied to the real window - s&box's
 /// sandboxed game-code compiler whitelists which APIs addon code can call (SB1000 errors on
 /// anything not allowed) and specifically closes off reflection/invocation-style APIs, and actual
@@ -20,6 +21,8 @@ namespace DrunkenBarFight;
 public class GameSettings
 {
 	public float MasterVolume { get; set; } = 1f;
+	public float SfxVolume { get; set; } = 1f;
+	public float MusicVolume { get; set; } = 1f;
 	public int ResolutionIndex { get; set; } = 2;
 	public bool Fullscreen { get; set; } = true;
 
@@ -76,20 +79,34 @@ public class GameSettings
 	public void SetMasterVolume( float value )
 	{
 		MasterVolume = Math.Clamp( value, 0f, 1f );
-		ApplyMasterVolume();
+		ApplyMusicVolume();
+		Save();
+	}
+
+	public void SetSfxVolume( float value )
+	{
+		SfxVolume = Math.Clamp( value, 0f, 1f );
+		Save();
+	}
+
+	public void SetMusicVolume( float value )
+	{
+		MusicVolume = Math.Clamp( value, 0f, 1f );
+		ApplyMusicVolume();
 		Save();
 	}
 
 	/// <summary>
-	/// Push MasterVolume at anything that doesn't route through PlaySound. The global music player is
-	/// engine-side and outlives the scene, so it won't pick the slider up on its own. Guarded because
-	/// music may not be playing (menu boot, headless) - setting the volume is still harmless then.
+	/// Push MasterVolume * MusicVolume at anything that doesn't route through PlaySound. The global
+	/// music player is engine-side and outlives the scene, so it won't pick the sliders up on its
+	/// own. Guarded because music may not be playing (menu boot, headless) - setting the volume is
+	/// still harmless then.
 	/// </summary>
-	void ApplyMasterVolume()
+	void ApplyMusicVolume()
 	{
 		try
 		{
-			Game.Music.Volume = MasterVolume;
+			Game.Music.Volume = MasterVolume * MusicVolume;
 		}
 		catch { }
 	}
@@ -158,7 +175,7 @@ public class GameSettings
 
 			// Multiply rather than assign so any per-SoundEvent volume baked into the .sound asset is
 			// preserved instead of being overwritten.
-			handle.Volume *= Instance.MasterVolume * SfxGain;
+			handle.Volume *= Instance.MasterVolume * Instance.SfxVolume * SfxGain;
 
 			if ( pitch != 1f )
 				handle.Pitch = pitch;

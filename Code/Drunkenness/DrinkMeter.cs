@@ -13,11 +13,11 @@ public class DrinkMeter : Component
 {
 	public static DrinkMeter Local { get; private set; }
 
-	[Property, Group( "Tuning" )] public float MaxValue { get; set; } = 60f;
+	[Property, Group( "Tuning" )] public float MaxValue { get; set; } = 45f;
 	[Property, Group( "Tuning" )] public float ProgressPerKill { get; set; } = 22f;
 	[Property, Group( "Tuning" )] public float ProgressPerToughKillBonus { get; set; } = 15f;
 	[Property, Group( "Tuning" )] public float FreezeDuration { get; set; } = 0.9f;
-	[Property, Group( "Tuning" )] public float HealPerDrink { get; set; } = 30f;
+	[Property, Group( "Tuning" )] public float HealPerDrink { get; set; } = 20f;
 
 	[Property, Group( "Animation" )] public string DrinkAnimation { get; set; } = "";
 	[Property, Group( "Animation" )] public float DrinkAnimationDuration { get; set; } = 0.9f;
@@ -48,11 +48,6 @@ public class DrinkMeter : Component
 	void OnEnemyKilled( EnemyKillInfo info )
 	{
 		if ( GameManager.Instance is not null && GameManager.Instance.State != RunState.Playing )
-			return;
-
-		// Killing the sobering bartender is the "good for you" play - it shouldn't also push you
-		// toward your next drink, or the two systems fight each other.
-		if ( info.WasSobering )
 			return;
 
 		var amount = ProgressPerKill + (info.Enemy is EnemyBruiser ? ProgressPerToughKillBonus : 0f);

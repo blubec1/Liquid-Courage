@@ -154,6 +154,24 @@
 				</div>
 
 				<div class="setting-row">
+					<div class="setting-label">SFX Volume</div>
+					<div class="setting-control">
+						<div class="stepper-button" onclick="@SfxVolumeDown">-</div>
+						<div class="setting-bar-bg"><div class="setting-bar-fill" style="width:@((Settings.SfxVolume * 100).ToString( "0.##" ))%;"></div></div>
+						<div class="stepper-button" onclick="@SfxVolumeUp">+</div>
+					</div>
+				</div>
+
+				<div class="setting-row">
+					<div class="setting-label">Music Volume</div>
+					<div class="setting-control">
+						<div class="stepper-button" onclick="@MusicVolumeDown">-</div>
+						<div class="setting-bar-bg"><div class="setting-bar-fill" style="width:@((Settings.MusicVolume * 100).ToString( "0.##" ))%;"></div></div>
+						<div class="stepper-button" onclick="@MusicVolumeUp">+</div>
+					</div>
+				</div>
+
+				<div class="setting-row">
 					<div class="setting-label">Resolution</div>
 					<div class="setting-control">
 						<div class="choice-button" onclick="@CycleResolution">@ResolutionLabel</div>
@@ -375,6 +393,30 @@
 		Settings.SetMasterVolume( Settings.MasterVolume + 0.1f );
 	}
 
+	void SfxVolumeDown()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.SetSfxVolume( Settings.SfxVolume - 0.1f );
+	}
+
+	void SfxVolumeUp()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.SetSfxVolume( Settings.SfxVolume + 0.1f );
+	}
+
+	void MusicVolumeDown()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.SetMusicVolume( Settings.MusicVolume - 0.1f );
+	}
+
+	void MusicVolumeUp()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.SetMusicVolume( Settings.MusicVolume + 0.1f );
+	}
+
 	void CycleResolution()
 	{
 		GameSettings.PlaySound( "sounds/ui/click.sound" );
@@ -393,9 +435,9 @@
 	// uses for its own continuous effects). Bumped from 12 to 30: 12 rebuilds/sec was visibly
 	// choppy for the rising/falling motes in particular, reported as "slow and laggy".
 	protected override int BuildHash() => System.HashCode.Combine(
-		Visible, _screen, Settings.MasterVolume, Settings.ResolutionIndex, Settings.Fullscreen,
-		Outfit.Version,
-		Visible ? (int)(Time.Now * 30) : 0 );
+		Visible, _screen, Settings.MasterVolume, Settings.SfxVolume, Settings.MusicVolume,
+		Settings.ResolutionIndex, Settings.Fullscreen,
+		System.HashCode.Combine( Outfit.Version, Visible ? (int)(Time.Now * 30) : 0 ) );
 }
 
 <style>

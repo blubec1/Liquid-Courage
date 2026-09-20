@@ -246,7 +246,7 @@ public static class FinisherLibrary
 			Name = "Opening Slam",
 			Sequence = new[] { AttackId.Heavy, AttackId.Punch, AttackId.Kick },
 			Behavior = FinisherBehavior.LineShockwave,
-			Damage = 85,
+			Damage = 64,
 			Range = 320,
 			ArcDegrees = 80,
 			WaveSpeed = 700f,

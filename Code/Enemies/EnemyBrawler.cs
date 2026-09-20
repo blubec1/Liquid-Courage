@@ -13,7 +13,6 @@ public class EnemyBrawler : EnemyBase
 		AttackRange = 55f;
 		AttackCooldown = 1.2f;
 		AttackWindup = 0f;
-		IsSoberingEnemy = false;
 	}
 
 	public override void ApplyVisual()

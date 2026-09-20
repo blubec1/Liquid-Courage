@@ -9,7 +9,7 @@ namespace DrunkenBarFight;
 ///
 /// Drunkenness now ONLY rises when DrinkMeter fills up and calls DrinkGlass() (see DrinkMeter.cs) -
 /// never directly from combo, damage, or kills. It falls slowly on its own over time, and faster
-/// from sobering enemies/pickups. Crossing MaxValue on a drink ends the run immediately.
+/// from sobering pickups. Crossing MaxValue on a drink ends the run immediately.
 /// </summary>
 public class DrunkennessSystem : Component
 {
@@ -19,7 +19,7 @@ public class DrunkennessSystem : Component
 	[Property, Group( "Tuning" )] public float GlassAmount { get; set; } = 15f;
 	[Property, Group( "Tuning" )] public float LastCallThreshold { get; set; } = 130f;
 	[Property, Group( "Tuning" )] public float PassiveDecayAmount { get; set; } = 1f;
-	[Property, Group( "Tuning" )] public float PassiveDecayInterval { get; set; } = 15f;
+	[Property, Group( "Tuning" )] public float PassiveDecayInterval { get; set; } = 30f;
 
 	/// <summary>Below this raw Value the camera's ambient drunk sway (see ShakeFraction01) is dead,
 	/// but only just - the effects are meant to creep in from a light buzz, not appear all at once
@@ -179,7 +179,7 @@ public class DrunkennessSystem : Component
 		Vfx.PickupSparkle( pos );
 	}
 
-	/// <summary>Called by sobering enemy deaths, sobering pickups, and passive decay.</summary>
+	/// <summary>Called by sobering pickups, the Sober Up press, and passive decay.</summary>
 	public void Reduce( float amount )
 	{
 		if ( amount <= 0 )

@@ -28,9 +28,9 @@ public class MusicController : Component
 	{
 		try
 		{
-			// Pick up whatever the player already set - OnStart runs once, SetMasterVolume keeps it
-			// in sync afterwards.
-			Game.Music.Volume = GameSettings.Instance.MasterVolume;
+			// Pick up whatever the player already set - OnStart runs once, the GameSettings setters
+			// keep it in sync afterwards.
+			Game.Music.Volume = GameSettings.Instance.MasterVolume * GameSettings.Instance.MusicVolume;
 			Game.Music.Play( Track, FadeIn, loop: true, volume: Gain );
 		}
 		catch ( System.Exception ex )

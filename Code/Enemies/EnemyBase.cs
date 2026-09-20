@@ -19,8 +19,6 @@ public abstract class EnemyBase : Component
 	[Property, Group( "Stats" )] public float AttackRange { get; set; } = 55f;
 	[Property, Group( "Stats" )] public float AttackCooldown { get; set; } = 1.2f;
 	[Property, Group( "Stats" )] public float AttackWindup { get; set; } = 0f;
-	[Property, Group( "Stats" )] public bool IsSoberingEnemy { get; set; } = false;
-	[Property, Group( "Stats" )] public float SoberingAmount { get; set; } = 18f;
 
 	// Hard floor on how close an enemy is ever allowed to get to the player, enforced every frame in
 	// UpdateAi regardless of which movement path ran - this is what stops enemies from sliding into
@@ -31,7 +29,7 @@ public abstract class EnemyBase : Component
 	// minimum. 50 gives enough room that the two collision volumes don't actually touch.
 	[Property, Group( "Stats" )] public float MinDistanceFromPlayer { get; set; } = 50f;
 
-	// Capped by this archetype's own AttackRange (EnemySoberingBartender's is only 45) - otherwise a
+	// Capped by this archetype's own AttackRange - otherwise a
 	// short-ranged archetype could get permanently held outside its own attack range by the standoff
 	// clamp above and never be able to land a hit at all. Correctness (being able to attack) wins over
 	// the spacing preference for any archetype whose range is tighter than the base standoff.
@@ -125,9 +123,21 @@ public abstract class EnemyBase : Component
 	// Real physics ragdoll on death via Sandbox.ModelPhysics (added to this GameObject, which
 	// already carries the SkinnedModelRenderer). The animgraph is switched off first so it stops
 	// fighting the physics-driven pose. Total lifetime from death to despawn is 3 seconds: a short
-	// ragdoll hold so the fall actually reads, then a fade over the remainder.
+	// ragdoll hold so the fall actually reads, then an opacity fade over the remainder.
 	const float RagdollHoldDuration = 1.2f;
 	const float FadeDuration = 1.8f;
+
+	// The ragdoll is placed relative to the floor probed beneath the death spot (RagdollSpawnLift
+	// above it), not the corpse's raw z - a corpse that died flush with ground (or clipped into it)
+	// would otherwise materialize its ragdoll embedded in the floor. If that spawn site is inside
+	// geometry or another entity, FindRagdollSpawnPosition falls back to a plain vertical raise.
+	// These are the probe/fallback knobs; see FindRagdollSpawnPosition. (A sideways shimmy used to
+	// run up to eight extra sphere sweeps per death - removed, it spiked trace cost hard in
+	// horde-clear moments with many simultaneous kills.)
+	const float RagdollSpawnLift = 45f;
+	const float RagdollSpawnProbeHeight = 400f;
+	const float RagdollSpawnBodyRadius = 20f;
+	const float RagdollSpawnFallbackLift = 100f;
 
 	// Knockback is tuned to look right as a kinematic slide (WorldPosition += velocity * Time.Delta
 	// with drag decay). On death it never reaches the ragdoll directly - the ragdoll toss is driven
@@ -142,6 +152,12 @@ public abstract class EnemyBase : Component
 	const float RagdollDamageImpulseScale = 1000f;
 	const float RagdollDamageLiftScale = 340f;
 	const float RagdollDamageLiftCap = 60f;
+
+	// Applied to every ragdoll body once they exist (see TagRagdollHierarchy), along with
+	// EnhancedCcd. Damping bleeds the toss impulse and free-fall momentum quickly so the corpse
+	// settles in place instead of sliding across the map after it lands.
+	const float RagdollLinearDamping = 4f;
+	const float RagdollAngularDamping = 4f;
 
 	// The kill toss is queued at death and applied the first frame ModelPhysics actually has its
 	// per-bone bodies. Those bodies don't exist synchronously inside Components.Create - they're
@@ -735,6 +751,67 @@ public abstract class EnemyBase : Component
 			Die();
 	}
 
+/// <summary>
+	/// Finds where the ragdoll should materialize: above the real floor beneath the death spot
+	/// (not the corpse's possibly-clipped z), skipping a site that would embed the body in
+	/// geometry or another entity. If the death spot is blocked, it falls back to a plain vertical
+	/// raise. Every probe is a short sphere sweep through the exact spawn elevation, because
+	/// StartedSolid only reports "inside something" if the sweep actually travels through a solid
+	/// volume; a long ground probe starting way up high never does.
+	/// </summary>
+	Vector3 FindRagdollSpawnPosition( Vector3 deathPos )
+	{
+		try
+		{
+			var probeTop = new Vector3( deathPos.x, deathPos.y, deathPos.z + RagdollSpawnProbeHeight );
+			var probeBottom = new Vector3( deathPos.x, deathPos.y, deathPos.z - 50f );
+
+			var ground = Scene.Trace.Sphere( RagdollSpawnBodyRadius, probeTop, probeBottom )
+				.IgnoreGameObject( GameObject )
+				.WithoutTags( "ragdoll" )
+				.Run();
+
+			var spawnAt = new Vector3( deathPos.x, deathPos.y, deathPos.z + RagdollSpawnLift );
+			if ( ground.Hit )
+				spawnAt.z = ground.HitPosition.z + RagdollSpawnLift;
+
+			// The death spot is fine - spawn there. Otherwise take the vertical escape: an
+			// airborne corpse that then drops is still better than one that materializes inside
+			// a wall or another enemy's collider.
+			if ( IsSpawnSiteClear( spawnAt ) )
+				return spawnAt;
+
+			return new Vector3( deathPos.x, deathPos.y, deathPos.z + RagdollSpawnFallbackLift );
+		}
+		catch
+		{
+			// Any trace failure falls back to the plain raised spot - dying can't break.
+			return deathPos + Vector3.Up * RagdollSpawnLift;
+		}
+	}
+
+	/// <summary>True when a corpse-wide sphere window around the spawn point is free of geometry and
+	/// live enemies. Ignores this dying enemy and any existing ragdolls (dead bodies shouldn't force
+	/// a live corpse elsewhere).</summary>
+	bool IsSpawnSiteClear( Vector3 spawnAt )
+	{
+		try
+		{
+			var tr = Scene.Trace.Sphere( RagdollSpawnBodyRadius,
+					new Vector3( spawnAt.x, spawnAt.y, spawnAt.z + 40f ),
+					new Vector3( spawnAt.x, spawnAt.y, spawnAt.z - 40f ) )
+				.IgnoreGameObject( GameObject )
+				.WithoutTags( "ragdoll" )
+				.Run();
+
+			return !tr.StartedSolid && ( tr.Fraction >= 1f || tr.HitPosition.z <= spawnAt.z - 30f );
+		}
+		catch
+		{
+			return true;
+		}
+	}
+
 	void Die()
 	{
 		if ( IsDead )
@@ -803,11 +880,30 @@ public abstract class EnemyBase : Component
 			_attackSequenceActive = false;
 			try { BodyRenderer?.ClearPhysicsBones(); } catch { }
 
+			// Find a clear place for the ragdoll before physics spawns its per-bone bodies. The
+			// corpse's own z can be flush with (or clipped into) the ground, and other enemies can
+			// be standing exactly on the kill spot - spawning into either embeds the ragdoll and it
+			// punches through / vanishes. See FindRagdollSpawnPosition.
+			WorldPosition = FindRagdollSpawnPosition( WorldPosition );
+
 			// Hand the body over to real physics. Citizen-based models ship with ragdoll bones
 			// already set up, and this GameObject already carries the SkinnedModelRenderer, so
 			// ModelPhysics picks it up the same way every other sibling-component setup in this
-			// project auto-wires (AnimHelper -> renderer, etc.).
-			Components.Create<Sandbox.ModelPhysics>();
+			// project auto-wires (AnimHelper -> renderer, etc.). The renderer/model links are set
+			// explicitly anyway so the physics skeleton is always built from the correct model and
+			// drives the renderer from the per-bone bodies (the field guide recommends this over
+			// relying on auto-wiring; a mislinked ragdoll builds empty/phantom bodies on some spawns).
+			var ragdollPhysics = Components.Create<Sandbox.ModelPhysics>();
+			if ( ragdollPhysics is not null )
+			{
+				try
+				{
+					ragdollPhysics.Renderer = BodyRenderer;
+					ragdollPhysics.Model = BodyRenderer?.Model;
+					ragdollPhysics.MotionEnabled = true;
+				}
+				catch { }
+			}
 
 			// Toss the torso away from the player, scaled by the killing blow's damage. Split from
 			// the knockback velocity so a haymaker-finisher kill launches the body while a weak
@@ -821,12 +917,8 @@ public abstract class EnemyBase : Component
 			Enemy = this,
 			WasFinisher = _pendingWasFinisher,
 			WasEnvironmental = _pendingWasEnvironmental,
-			WasSobering = IsSoberingEnemy,
 			MultiKillIndex = MultiKillTracker.RegisterKillAndGetIndex(),
 		};
-
-		if ( IsSoberingEnemy )
-			DrunkennessSystem.Local?.Reduce( SoberingAmount );
 
 		Vfx.DeathBurst( WorldPosition );
 		Vfx.BloodSpatter( WorldPosition, 1.2f );
@@ -925,7 +1017,17 @@ public abstract class EnemyBase : Component
 
 		var fadeT = System.Math.Clamp( (elapsed - RagdollHoldDuration) / FadeDuration, 0f, 1f );
 
-		try { WorldScale = Vector3.One * (1f - fadeT); }
+		// Opacity fade - the body stays a full-size ragdoll the whole time and only turns
+		// transparent, so it dissolves in place instead of shrinking the physics bodies
+		// (a scale shrink mid-fade read as the corpse collapsing in on itself).
+		try
+		{
+			if ( BodyRenderer is not null )
+			{
+				var baseTint = _hasCapturedBaseTint ? _bodyBaseTint : Color.White;
+				BodyRenderer.Tint = new Color( baseTint.r, baseTint.g, baseTint.b, baseTint.a * (1f - fadeT) );
+			}
+		}
 		catch { }
 
 		if ( fadeT >= 1f )
@@ -952,6 +1054,25 @@ public abstract class EnemyBase : Component
 
 			TagRecursive( GameObject, "enemy" );
 			TagRecursive( GameObject, "ragdoll" );
+
+			// Harden the per-bone bodies so a big kill toss can't catapult the corpse through the
+			// floor/walls or leave it skating forever:
+			//  - EnhancedCcd keeps fast bodies from tunneling through static geometry - exactly the
+			//    bullets/rockets case the API docs describe. s&box CCD does NOT resolve against other
+			//    EnhancedCcd bodies, so ragdoll limbs won't self-collide (the pitfall in other engines).
+			//  - Damping bleeds the toss impulse and free-fall momentum quickly, so the corpse settles
+			//    in place instead of sliding across the map after landing.
+			foreach ( var b in physics.Bodies )
+			{
+				var pb = b.Component?.PhysicsBody;
+				if ( pb is null )
+					continue;
+
+				pb.EnhancedCcd = true;
+				pb.LinearDamping = RagdollLinearDamping;
+				pb.AngularDamping = RagdollAngularDamping;
+			}
+
 			_ragdollTagged = true;
 		}
 		catch { }

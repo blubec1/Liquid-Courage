@@ -115,6 +115,7 @@ public class GameManager : Component
 
 		ComboSystem.Local?.ResetRun();
 		DrunkennessSystem.Local?.ResetRun();
+		DrinkMeter.Local?.ResetRun();
 		ScoreSystem.Local?.ResetRun();
 		StyleSystem.Local?.ResetRun();
 		AttackStringSystem.Local?.ResetRun();
@@ -182,6 +183,7 @@ public class GameManager : Component
 
 		ComboSystem.Local?.ResetRun();
 		DrunkennessSystem.Local?.ResetRun();
+		DrinkMeter.Local?.ResetRun();
 		ScoreSystem.Local?.ResetRun();
 		StyleSystem.Local?.ResetRun();
 		AttackStringSystem.Local?.ResetRun();

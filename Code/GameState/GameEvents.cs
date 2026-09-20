@@ -47,7 +47,7 @@ public static class GameEvents
 	public static event Action<float, float> PlayerDamaged;
 	public static void RaisePlayerDamaged( float amount, float fraction01 ) => PlayerDamaged?.Invoke( amount, fraction01 );
 
-	/// <summary>Fired whenever an enemy dies. Passes whether it was a sobering enemy, a finisher kill, and an environmental kill.</summary>
+	/// <summary>Fired whenever an enemy dies. Passes whether it was a finisher kill and an environmental kill.</summary>
 	public static event Action<EnemyKillInfo> EnemyKilled;
 	public static void RaiseEnemyKilled( EnemyKillInfo info ) => EnemyKilled?.Invoke( info );
 
@@ -96,6 +96,5 @@ public struct EnemyKillInfo
 	public EnemyBase Enemy;
 	public bool WasFinisher;
 	public bool WasEnvironmental;
-	public bool WasSobering;
 	public int MultiKillIndex; // 0 = first kill in this window, 1 = second, etc.
 }

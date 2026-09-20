@@ -5,9 +5,7 @@ namespace DrunkenBarFight;
 
 /// <summary>
 /// Spawns enemies around the arena perimeter (or at hand-placed EnemySpawnPoint markers, if any exist
-/// in the scene) on a ramping timer, mixes in tougher archetypes as survival time increases, and
-/// guarantees a sobering enemy on a fixed cadence so the player is never mathematically locked out of
-/// managing their drunkenness.
+/// in the scene) on a ramping timer and mixes in tougher archetypes as survival time increases.
 ///
 /// Each enemy gets a real Rigidbody with gravity ON at spawn, so it physically drops from wherever its
 /// spawn point/ring position sits down to the actual floor instead of freezing at the spawn marker's
@@ -35,12 +33,9 @@ public class HordeSpawner : Component
 	[Property, Group( "Ramp" )] public int MaxAliveEnemies { get; set; } = 18;
 
 	[Property, Group( "Mix" )] public float BruiserUnlockTime { get; set; } = 45f;
-	[Property, Group( "Mix" )] public float SoberingChance { get; set; } = 0.15f;
 	[Property, Group( "Mix" )] public float BruiserChance { get; set; } = 0.2f;
-	[Property, Group( "Mix" )] public float GuaranteedSoberingInterval { get; set; } = 20f;
 
 	float _timeSinceSpawn;
-	float _timeSinceGuaranteedSobering;
 
 	protected override void OnAwake()
 	{
@@ -53,19 +48,12 @@ public class HordeSpawner : Component
 			return;
 
 		_timeSinceSpawn += Time.Delta;
-		_timeSinceGuaranteedSobering += Time.Delta;
 
 		var survivalTime = GameManager.Instance.SurvivalTime;
 		var rampT = Math.Clamp( survivalTime / SpawnIntervalRampSeconds, 0f, 1f );
 		var currentInterval = StartSpawnInterval + (MinSpawnInterval - StartSpawnInterval) * rampT;
 
-		if ( _timeSinceGuaranteedSobering >= GuaranteedSoberingInterval )
-		{
-			_timeSinceGuaranteedSobering = 0f;
-			if ( EnemyBase.All.Count < MaxAliveEnemies )
-				SpawnSpecific<EnemySoberingBartender>();
-		}
-		else if ( _timeSinceSpawn >= currentInterval )
+		if ( _timeSinceSpawn >= currentInterval )
 		{
 			_timeSinceSpawn = 0f;
 			if ( EnemyBase.All.Count < MaxAliveEnemies )
@@ -78,9 +66,7 @@ public class HordeSpawner : Component
 		var bruiserUnlocked = survivalTime >= BruiserUnlockTime;
 		var roll = Random.Shared.NextSingle();
 
-		if ( roll < SoberingChance )
-			SpawnSpecific<EnemySoberingBartender>();
-		else if ( bruiserUnlocked && roll < SoberingChance + BruiserChance )
+		if ( bruiserUnlocked && roll < BruiserChance )
 			SpawnSpecific<EnemyBruiser>();
 		else
 			SpawnSpecific<EnemyBrawler>();
@@ -169,6 +155,5 @@ public class HordeSpawner : Component
 	public void ResetRun()
 	{
 		_timeSinceSpawn = 0f;
-		_timeSinceGuaranteedSobering = 0f;
 	}
 }

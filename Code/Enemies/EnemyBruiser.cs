@@ -17,7 +17,6 @@ public class EnemyBruiser : EnemyBase
 		AttackRange = 78f;
 		AttackCooldown = 2.2f;
 		AttackWindup = 0.55f;
-		IsSoberingEnemy = false;
 	}
 
 	public override void ApplyVisual()

@@ -28,7 +28,7 @@ Every system from the spec, organized under `Code/`:
 - `Scoring/` - the multiplier formula (combo x drunkenness x style) and the style bonus system.
 - `Player/` - movement, mouse-aim facing, HP, the attack/finisher input loop, and the procedural
   attack "animation" (see below).
-- `Enemies/` - Brawler, Bruiser (telegraphed heavy attack), Sobering Bartender.
+- `Enemies/` - Brawler, Bruiser (telegraphed heavy attack).
 - `Horde/` - ramping spawner + milestone announcements.
 - `Pickups/`, `Environment/` - sobering pickups, throwable bottles.
 - `Camera/` - fixed isometric camera, follow + screenshake.
@@ -48,7 +48,7 @@ start working as-is. Until then, the death screen will just show "Unavailable" f
 
 **2. There's no custom art or audio.** Player and all enemies use the stock Citizen model
 (tinted/scaled per archetype instead of separate models - Brawler reddish, Bruiser dark red and
-1.35x scale, Sobering Bartender gold). There are no punch/kick/heavy animation clips by default, so
+1.35x scale). There are no punch/kick/heavy animation clips by default, so
 attacks are a procedural lunge + squash/stretch on the model (see `PlayerAnimationDriver.cs`) -
 see "Adding real attack animations" below for how to swap in real clips. The combat cues live in
 `sounds/combat/` and `sounds/ui/` - `light_impact`, `medium_impact`, `player_hurt`, `click`, and the
