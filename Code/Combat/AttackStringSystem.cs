@@ -42,11 +42,6 @@ public class AttackStringSystem : Component
 		if ( _history.Count > maxLen )
 			_history.RemoveRange( 0, _history.Count - maxLen );
 
-		for(int i = 0; i < _history.Count; i++ )
-		{
-			Log.Info( $"[{i}] {_history[i]}" );
-		}
-
 		if ( now - _lastFinisherTime < FinisherGlobalCooldown )
 			return null;
 

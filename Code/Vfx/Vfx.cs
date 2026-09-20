@@ -100,6 +100,27 @@ public static class Vfx
 		catch { }
 	}
 
+	/// <summary>The instant the Opening Slam's shockwave launches: a ground ring at the player's
+	/// feet, a bright swipe across the slam's front arc, and a burst at the point of impact. Fired at
+	/// the animation's slam beat (see FinisherDefinition.WaveLead) so the heavy read lands together
+	/// with the damage - the traveling FxShockwave front then carries that energy forward.</summary>
+	public static void SlamImpact( Vector3 origin, Vector3 facing, float range )
+	{
+		try
+		{
+			var dir = new Vector3( facing.x, facing.y, 0 );
+			if ( dir.Length < 0.001f )
+				dir = Vector3.Forward;
+			else
+				dir /= dir.Length;
+
+			AoePulseRing( origin, range * 0.45f, new Color( 1f, 0.75f, 0.3f ) );
+			AttackArc( origin, dir, 80f, range * 0.6f, new Color( 1f, 0.8f, 0.35f ) );
+			FinisherBurst( origin + dir * (range * 0.35f) );
+		}
+		catch { }
+	}
+
 	/// <summary>Bigger double-flash plus a wider ring of scatter sparks for a finisher connecting.</summary>
 	public static void FinisherBurst( Vector3 position )
 	{

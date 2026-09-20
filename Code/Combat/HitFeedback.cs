@@ -17,8 +17,8 @@ public static class HitFeedback
 		if ( hitCount <= 0 )
 			return;
 
-		var shakeAmount = 2.5f + impactStrength * 9f + (hitCount > 1 ? 2f : 0f);
-		var shakeDuration = 0.08f + impactStrength * 0.14f;
+		var shakeAmount = 1.5f + impactStrength * 6f + (hitCount > 1 ? 1.5f : 0f);
+		var shakeDuration = 0.07f + impactStrength * 0.12f;
 		GameEvents.RaiseShakeRequested( shakeAmount, shakeDuration );
 
 		if ( !string.IsNullOrEmpty( soundOverride ) )
@@ -27,13 +27,38 @@ public static class HitFeedback
 			PlayImpactSound( impactStrength );
 	}
 
-	public static void PlayFinisherImpact( float impactStrength, int hitCount )
+	/// <summary>Finisher impacts now select their cue off impactStrength through the same
+	/// light/medium/heavy buckets as normal attacks (PlayImpactSound), so a rapid-combo jab and the
+	/// haymaker's closer no longer bang identically - the heavy bucket is the "extra heavy hit", and
+	/// it lands on the end of the haymaker and the slam. soundOverride forces a specific cue for a
+	/// finisher that wants one regardless of strength.</summary>
+	public static void PlayFinisherImpact( float impactStrength, int hitCount, string soundOverride = null )
 	{
-		var shakeAmount = 8f + impactStrength * 14f + hitCount * 2f;
-		var shakeDuration = 0.18f + impactStrength * 0.2f;
+		var shakeAmount = 5f + impactStrength * 9f + hitCount * 1.5f;
+		var shakeDuration = 0.15f + impactStrength * 0.16f;
 		GameEvents.RaiseShakeRequested( shakeAmount, shakeDuration );
 
-		GameSettings.PlaySound( "sounds/combat/finisher_impact.sound" );
+		if ( !string.IsNullOrEmpty( soundOverride ) )
+			GameSettings.PlaySound( soundOverride );
+		else
+			PlayImpactSound( impactStrength );
+	}
+
+	/// <summary>Plays an attack/finisher's swing ("whoosh") cue at the moment the move is thrown.
+	/// Unlike PlayAttackImpact this deliberately does NOT gate on hit count - the whole point is that a
+	/// whiffed swing still makes a noise. Null/empty is a no-op, so any definition without a cue
+	/// assigned stays silent. pitchVariation adds a small random detune so rapid repeats (Flurry Jab,
+	/// AoE pulses) don't sound machine-gunned.</summary>
+	public static void PlaySwing( string sound, float pitchVariation = 0f )
+	{
+		if ( string.IsNullOrEmpty( sound ) )
+			return;
+
+		var pitch = 1f;
+		if ( pitchVariation > 0f )
+			pitch += (System.Random.Shared.NextSingle() * 2f - 1f) * pitchVariation;
+
+		GameSettings.PlaySound( sound, pitch );
 	}
 
 	/// <summary>The player's own "ouch" feedback - shake plus a hurt sound, scaled by how big a
@@ -45,8 +70,8 @@ public static class HitFeedback
 	/// jolt, not a disorienting wallop - PlayFinisherImpact above is deliberately the bigger one.</summary>
 	public static void PlayPlayerHurt( float severity01 )
 	{
-		var shakeAmount = 6f + severity01 * 18f;
-		var shakeDuration = 0.12f + severity01 * 0.18f;
+		var shakeAmount = 4f + severity01 * 12f;
+		var shakeDuration = 0.1f + severity01 * 0.14f;
 		GameEvents.RaiseShakeRequested( shakeAmount, shakeDuration );
 
 		// One shared "getting hit" cue regardless of severity (previously split into light/heavy

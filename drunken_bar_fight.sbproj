@@ -1,8 +1,8 @@
 {
-  "Title": "Drunken Bar Fight",
+  "Title": "Last Round",
   "Type": "game",
-  "Org": "local",
-  "Ident": "drunken_bar_fight",
+  "Org": "lastcall",
+  "Ident": "last_call",
   "Schema": 1,
   "IncludeSourceFiles": false,
   "Resources": null,

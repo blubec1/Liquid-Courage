@@ -75,6 +75,10 @@ public class AttackDefinition
 	/// which wants the light-punch sound even though its ImpactStrength (tuned for shake feel, not
 	/// sound selection) would otherwise land it in the "medium" bucket.</summary>
 	public string ImpactSoundOverride;
+
+	/// <summary>Whoosh cue played the instant this attack is thrown - even on a whiff - as opposed to
+	/// ImpactSoundOverride which only fires when something is actually hit. See HitFeedback.PlaySwing.</summary>
+	public string SwingSound;
 }
 
 public static class AttackLibrary
@@ -93,8 +97,9 @@ public static class AttackLibrary
 			Range = 65,
 			ArcDegrees = 100,
 			ImpactStrength = 0.25f,
-			Knockback = 90,
+			Knockback = 60,
 			StaggerTime = 0.18f,
+			SwingSound = "sounds/combat/swing_light.sound",
 		},
 		// A "get off me" panic button with real damage behind it - the wide arc and huge knockback
 		// clear space, but the kick also pays out, so it's never a pure zero-damage push. The
@@ -111,7 +116,7 @@ public static class AttackLibrary
 			Animation = "Roundhouse_Kick_2",
 			AnimationDuration = 0.6f,
 			Name = "Kick",
-			Damage = 12,
+			Damage = 20,
 			Cooldown = 0.44f,
 			Recovery = 0.18f,
 			Range = 80,
@@ -124,6 +129,7 @@ public static class AttackLibrary
 			RadialPushRadius = 80,
 			// User-requested: kick uses the same impact sound as the light punch.
 			ImpactSoundOverride = "sounds/combat/light_impact.sound",
+			SwingSound = "sounds/combat/swing_kick.sound",
 		},
 		[AttackId.Heavy] = new()
 		{
@@ -131,7 +137,8 @@ public static class AttackLibrary
 			Animation = "Hook_Punch_2",
 			AnimationDuration = 0.6f,
 			Name = "Heavy",
-			Damage = 28,
+			// Kick + 7 (see AttackId.Kick above) - request.
+			Damage = 27,
 			Cooldown = 0.9f,
 			Recovery = 0.35f,
 			Range = 95,
@@ -139,6 +146,7 @@ public static class AttackLibrary
 			ImpactStrength = 1f,
 			Knockback = 380,
 			StaggerTime = 0.55f,
+			SwingSound = "sounds/combat/swing_heavy.sound",
 		},
 	};
 

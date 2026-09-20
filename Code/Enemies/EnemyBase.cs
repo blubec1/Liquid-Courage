@@ -132,13 +132,13 @@ public abstract class EnemyBase : Component
 	// Knockback is tuned to look right as a kinematic slide (WorldPosition += velocity * Time.Delta
 	// with drag decay). On death it never reaches the ragdoll directly - the ragdoll toss is driven
 	// purely by the killing hit's damage, proportionally, so a heavy haymaker visibly launches the
-	// body while a weak tap just tips it over. See ApplyRagdollKick. These scales were bumped to
-	// give kills a genuinely satisfying toss: a mid-weight hit now sends the body flying instead
-	// of tipping, and the lift cap was raised so heavy finishers get real hangtime.
-	// Kill toss tuned to look right as a speed-proportional shove. Scales multiplied by 100 for a
-	// TEMPORARY verification pass (this is only to prove the corpse actually launches now that the
-	// impulse lands on the resolved torso body - see TryApplyRagdollToss). Revert to 5f / 1.7f once
-	// confirmed.
+	// body while a weak tap just tips it over. See QueueRagdollKick.
+	//
+	// These scales look huge, but they are deliberate: s&box ragdoll bodies are very heavy, so a
+	// shove that reads as a satisfying launch here would barely nudge them at "normal" values. The
+	// impulse lands on the torso bone only (see TryApplyRagdollToss), which works because Die() now
+	// disables the leftover spawn Rigidbody and NavMeshAgent first - with the root body pinned, the
+	// torso would tear away from the hips instead of carrying the whole body.
 	const float RagdollDamageImpulseScale = 1000f;
 	const float RagdollDamageLiftScale = 340f;
 	const float RagdollDamageLiftCap = 60f;
@@ -149,6 +149,13 @@ public abstract class EnemyBase : Component
 	// found zero bodies and every corpse just dropped in place. See TryApplyRagdollToss.
 	Vector3 _ragdollTossImpulse;
 	bool _ragdollTossPending;
+
+	// ModelPhysics builds the ragdoll as a hierarchy of per-bone physics GameObjects, and those
+	// bodies do NOT inherit the root's "enemy" tag - so without this they fell back to the default
+	// solid collision rule and physically collided with the playerblocker walls (playerblocker+solid
+	// = Collide in Collision.config). Tagged lazily on the same tick the bodies appear, exactly like
+	// the kill toss above, and only once.
+	bool _ragdollTagged;
 
 	// Citizen ragdoll torso candidates, best to worst. The skeleton uses spine_0..3 names (see
 	// UpperBodyBones) and ModelPhysics builds one physics body per bone, matched by bone index -
@@ -411,6 +418,10 @@ public abstract class EnemyBase : Component
 			// Ragdoll kill toss: applies the queued impulse the first frame physics bodies exist
 			// (ModelPhysics spawns them a tick after Components.Create, see QueueRagdollKick).
 			TryApplyRagdollToss();
+
+			// Stamp the per-bone ragdoll bodies with the enemy/ragdoll tags once they exist, so the
+			// corpse obeys the same collision rules as the live enemy instead of the default solid rule.
+			TagRagdollHierarchy();
 
 			// Physics (or nothing, if ragdoll setup failed) owns position/rotation from here on -
 			// don't fight it with the manual knockback slide below.
@@ -755,6 +766,43 @@ public abstract class EnemyBase : Component
 			}
 			catch { }
 
+			// Stop the two components that still own the ROOT transform, before handing it to physics.
+			// The ragdoll bodies ModelPhysics builds are children of this GameObject, so anything that
+			// keeps moving the root drags the whole corpse with it:
+			//  - NavMeshAgent keeps steering to its last MoveTo target (the standoff point near the
+			//    player) every tick unless disabled. OnUpdate returns early once dead, before the
+			//    alive-branch gate that normally toggles the agent, so a kill that lands while the
+			//    agent is enabled leaves it driving the corpse toward that fixed spot - the "ragdolls
+			//    move on their own toward a point on the map" bug.
+			//  - The spawn Rigidbody (added by HordeSpawner for the fall from spawn) is left motion/
+			//    gravity-off after landing, i.e. a kinematic body pinned at the death spot. With the
+			//    root pinned, the torso-only kill toss tears the body away from the hips instead of
+			//    carrying it - the mesh stretching across the view. ModelPhysics builds its own bodies,
+			//    so this leftover one is safe to disable outright.
+			try
+			{
+				if ( _navAgent is not null )
+					_navAgent.Enabled = false;
+			}
+			catch { }
+
+			try
+			{
+				if ( _rigidbody is not null )
+					_rigidbody.Enabled = false;
+			}
+			catch { }
+
+			// Release the attack bone-blend before physics takes the skeleton. DriveAttackBoneOverrides
+			// writes the upper-body bones via SetBoneTransform, which routes to the SAME physics-bone
+			// write path ModelPhysics uses, and its overrides persist until cleared. A death that
+			// interrupts a swing means the blend's own ClearPhysicsBones never runs (OnUpdate returns
+			// early once dead), so the last attack pose stays pinned - then ModelPhysics starts driving
+			// the skeleton too, two writers feed one skin, and the mesh stretches to absurd proportions.
+			// Clearing here, before the ragdoll exists, drops only those stale overrides.
+			_attackSequenceActive = false;
+			try { BodyRenderer?.ClearPhysicsBones(); } catch { }
+
 			// Hand the body over to real physics. Citizen-based models ship with ragdoll bones
 			// already set up, and this GameObject already carries the SkinnedModelRenderer, so
 			// ModelPhysics picks it up the same way every other sibling-component setup in this
@@ -884,10 +932,34 @@ public abstract class EnemyBase : Component
 			GameObject.Destroy();
 	}
 
+	/// <summary>Stamps the ragdoll ModelPhysics builds at death with the tags the live enemy carried,
+	/// plus a dedicated "ragdoll" tag. The per-bone physics bodies are separate GameObjects that don't
+	/// inherit the root's tags, so without this they resolve to the default solid rule and collide with
+	/// playerblocker walls; tagged "enemy" they pass through (playerblocker defaults to Ignore) while
+	/// "ragdoll" lets Collision.config make the player ignore corpses without also ignoring live enemies.
+	/// Lazy for the same reason as the kill toss: the bodies don't exist until a tick after
+	/// Components.Create.</summary>
+	void TagRagdollHierarchy()
+	{
+		if ( _ragdollTagged )
+			return;
+
+		try
+		{
+			var physics = Components.Get<Sandbox.ModelPhysics>();
+			if ( physics?.Bodies is null || physics.Bodies.Count == 0 )
+				return;
+
+			TagRecursive( GameObject, "enemy" );
+			TagRecursive( GameObject, "ragdoll" );
+			_ragdollTagged = true;
+		}
+		catch { }
+	}
+
 	/// <summary>Adds a tag to a GameObject and every descendant (recursively) - used to mark the whole
-	/// ragdoll hierarchy ModelPhysics creates under an enemy at death, since the player's
-	/// CharacterController.IgnoreLayers works off Tags and there's no guarantee those per-bone bodies
-	/// inherit a tag set only on the root.</summary>
+	/// ragdoll hierarchy ModelPhysics creates under an enemy at death, since tags set only on the root
+	/// are not inherited by those per-bone bodies.</summary>
 	static void TagRecursive( GameObject go, string tag )
 	{
 		go.Tags.Add( tag );

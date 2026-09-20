@@ -15,7 +15,7 @@ namespace DrunkenBarFight;
 /// </summary>
 public class PlayerBlocker : Component
 {
-	public const string Tag = "player_blocker";
+	public const string Tag = "playerblocker";
 
 	static readonly List<PlayerBlocker> All = new();
 

@@ -16,14 +16,16 @@ public class DrunkennessSystem : Component
 	public static DrunkennessSystem Local { get; private set; }
 
 	[Property, Group( "Tuning" )] public float MaxValue { get; set; } = 150f;
-	[Property, Group( "Tuning" )] public float GlassAmount { get; set; } = 20f;
+	[Property, Group( "Tuning" )] public float GlassAmount { get; set; } = 15f;
 	[Property, Group( "Tuning" )] public float LastCallThreshold { get; set; } = 130f;
 	[Property, Group( "Tuning" )] public float PassiveDecayAmount { get; set; } = 1f;
 	[Property, Group( "Tuning" )] public float PassiveDecayInterval { get; set; } = 15f;
 
-	/// <summary>Below this raw Value, the player isn't drunk enough for ambient effects like camera
-	/// sway to show at all (see ShakeFraction01) - a light buzz shouldn't visibly affect anything.</summary>
-	[Property, Group( "Tuning" )] public float ShakeStartValue { get; set; } = 60f;
+	/// <summary>Below this raw Value the camera's ambient drunk sway (see ShakeFraction01) is dead,
+	/// but only just - the effects are meant to creep in from a light buzz, not appear all at once
+	/// past a hard threshold. 15/150 keeps a barely-perceptible early ramp while still leaving the
+	/// first sip feeling close to sober.</summary>
+	[Property, Group( "Tuning" )] public float ShakeStartValue { get; set; } = 15f;
 
 	[Property, Group( "Power Scaling" )] public float MaxDamageDealtBonus { get; set; } = 1.0f;
 	[Property, Group( "Power Scaling" )] public float MaxDamageTakenReduction { get; set; } = 0.5f;
@@ -105,19 +107,6 @@ public class DrunkennessSystem : Component
 	{
 		if ( GameManager.Instance is not null && GameManager.Instance.State != RunState.Playing )
 			return;
-
-		// DEV ONLY - quick keys to test drunkenness thresholds/overdrunk without grinding kills.
-		// M = drink a glass (+10, same code path a real drink uses - triggers the toast/flash too).
-		// N = sober up a glass (-10). Remove both before shipping. Uses raw keyboard, not an
-		// Input.config action, since these are debug-only and shouldn't be player-rebindable.
-		try
-		{
-			if ( Sandbox.Input.Keyboard.Pressed( "M" ) )
-				DrinkGlass();
-			if ( Sandbox.Input.Keyboard.Pressed( "N" ) )
-				Reduce( GlassAmount );
-		}
-		catch { }
 
 		if ( Input.Pressed( "SoberUp" ) )
 			TrySoberUp();

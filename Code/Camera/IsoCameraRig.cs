@@ -17,9 +17,9 @@ public class IsoCameraRig : Component
 	// Continuous ambient sway while the player is drunk - a GTA5-style light drift/wobble, not a
 	// jittery impact shake. Smooth layered sine waves (rather than Random noise like the impact
 	// shake below) so it reads as "swaying" instead of "vibrating". Driven by
-	// DrunkennessSystem.ShakeFraction01, which is 0 until the player crosses ShakeStartValue (60 by
-	// default) - stone sober and lightly buzzed both get zero sway - then ramps 0-1 from there to
-	// MaxValue. Deliberately capped low even at full drunkenness (see DrunkSwayMaxAmount/
+	// DrunkennessSystem.ShakeFraction01, which is 0 until the player crosses ShakeStartValue (15 by
+	// default - just past stone sober, so a light buzz already gets a gentle drift) - then ramps 0-1
+	// from there to MaxValue. Deliberately capped low even at full drunkenness (see DrunkSwayMaxAmount/
 	// MaxSpeedMultiplier below) - it should read as "the room is gently swimming", never as
 	// something that fights the player's ability to see/aim. Calm at every point on the curve,
 	// including the peak.

@@ -34,7 +34,6 @@
 			<div class="drink-bar-bg">
 				<div class="drink-bar-fill" style="width:@((DrinkFraction * 100).ToString( "0.##" ))%;"></div>
 			</div>
-			<div class="drunk-num">DRUNK <span class="drunk-num-value">@DrunkValueText</span></div>
 		</div>
 
 		<div class="top-right">
@@ -153,10 +152,6 @@
 	// --- Drunkenness VFX (deliberately no numeric bar - see DrunkennessSystem) ---
 	public bool IsLastCall => DrunkennessSystem.Local?.IsLastCall ?? false;
 
-	// Raw drunk number for the HUD readout ONLY (deliberately just the value, no bar/percent -
-	// see the class doc comment on DrunkennessSystem: the number is a debug-facing readout, not a
-	// bar the player is meant to play off).
-	public string DrunkValueText => DrunkennessSystem.Local is null ? "0" : ((int)DrunkennessSystem.Local.Value).ToString();
 	public float BlackoutFraction => DrunkennessSystem.Local?.BlackoutFraction01 ?? 0f;
 	public bool ShowBlackout => BlackoutFraction > 0f;
 
@@ -169,7 +164,10 @@
 		}
 	}
 
-	public float VignetteOpacity => System.Math.Clamp( (DrunkFraction01 - 0.2f) / 0.8f, 0f, 1f ) * 0.55f;
+	// Starts creeping in from a very light buzz (~5% drunk) rather than waiting for 20%, so the
+	// screen tells the player they're drinking well before the danger zone - peak opacity is
+	// unchanged, so it still only gets heavy as things get serious.
+	public float VignetteOpacity => System.Math.Clamp( (DrunkFraction01 - 0.05f) / 0.95f, 0f, 1f ) * 0.55f;
 
 	public string VignetteColor
 	{

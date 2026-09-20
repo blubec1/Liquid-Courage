@@ -32,6 +32,8 @@ public class PlayerCombat : Component
 	int _nextTickIndex;
 	float _finisherDamageMult;
 	bool _shockwaveFinished;
+	bool _shockwaveVfxSpawned;
+	bool _shockwaveImpactPlayed;
 	Vector3 _shockwaveOrigin;
 	Vector3 _shockwaveFacing;
 	readonly HashSet<EnemyBase> _finisherHitSet = new();
@@ -138,6 +140,7 @@ public class PlayerCombat : Component
 			ApplyRadialPush( origin, def, hits );
 
 		HitFeedback.PlayAttackImpact( def.ImpactStrength, hits.Count, def.ImpactSoundOverride );
+		HitFeedback.PlaySwing( def.SwingSound );
 		PlayerAnimationDriver.Local?.PlayAttackSwing( def );
 		Vfx.AttackArc( origin, facing, def.ArcDegrees, def.Range, new Color( 0.9f, 0.95f, 1f ) );
 
@@ -210,6 +213,7 @@ public class PlayerCombat : Component
 		}
 
 		HitFeedback.PlayFinisherImpact( finisher.ImpactStrength, hits.Count );
+		HitFeedback.PlaySwing( finisher.SwingSound );
 		PlayerAnimationDriver.Local?.PlayFinisher( finisher );
 		Vfx.AttackArc( origin, facing, finisher.ArcDegrees, finisher.Range, new Color( 1f, 0.8f, 0.3f ) );
 
@@ -241,6 +245,8 @@ public class PlayerCombat : Component
 		_nextTickIndex = 0;
 		_finisherDamageMult = DrunkennessSystem.Local?.DamageMultiplier ?? 1f;
 		_shockwaveFinished = false;
+		_shockwaveVfxSpawned = false;
+		_shockwaveImpactPlayed = false;
 		_shockwaveOrigin = origin;
 		_shockwaveFacing = facing;
 		_finisherHitSet.Clear();
@@ -251,13 +257,10 @@ public class PlayerCombat : Component
 		_nextReadyTime = _finisherEndTime;
 
 		PlayerAnimationDriver.Local?.PlayFinisher( finisher );
+		HitFeedback.PlaySwing( finisher.SwingSound );
 
 		if ( finisher.DisableMovement )
 			_movementDisableEndTime = _finisherEndTime;
-
-		if ( finisher.Behavior == FinisherBehavior.LineShockwave )
-			Vfx.ShockwaveFront( origin, facing, finisher.WaveSpeed,
-				MathF.Min( finisher.Duration, finisher.WaveDepth / MathF.Max( 0.01f, finisher.WaveSpeed ) ), finisher.ArcDegrees );
 	}
 
 	/// <summary>Advances the active finisher on its absolute tick schedule. Everything uses
@@ -307,6 +310,7 @@ public class PlayerCombat : Component
 			case FinisherBehavior.LineShockwave:
 				if ( !_shockwaveFinished )
 				{
+					SpawnShockwaveVfx( f );
 					DoShockwaveHit( f, f.WaveDepth );
 					_shockwaveFinished = true;
 				}
@@ -327,13 +331,25 @@ public class PlayerCombat : Component
 
 	void DriveStrikeTicks( FinisherDefinition f, float now )
 	{
-		Log.Info("CALLED");
-		while ( _nextTickIndex < f.StrikeCount && now >= _finisherStartTime + _nextTickIndex * f.StrikeInterval )
+		while ( _nextTickIndex < f.StrikeCount && now >= _finisherStartTime + StrikeTime( f, _nextTickIndex ) )
 		{
-			Log.Info( "HIT" );
 			DoRapidStrike( f, _nextTickIndex );
 			_nextTickIndex++;
 		}
+	}
+
+	/// <summary>Seconds from the finisher's start that strike <paramref name="index"/> lands. All
+	/// but the closer use the uniform StrikeInterval cadence; the closer can instead be pinned a
+	/// fixed lead before the end of the clip (FinalStrikeLeadFromEnd) so it syncs to the animation's
+	/// final beat rather than landing mid-swing.</summary>
+	static float StrikeTime( FinisherDefinition f, int index )
+	{
+		var scheduled = f.StrikeLead + index * f.StrikeInterval;
+
+		if ( index >= f.StrikeCount - 1 && f.FinalStrikeLeadFromEnd > 0f )
+			return MathF.Max( scheduled, f.Duration - f.FinalStrikeLeadFromEnd );
+
+		return scheduled;
 	}
 
 	/// <summary>The wavefront expands forward; reach only grows and we only ever damage enemies we
@@ -344,8 +360,16 @@ public class PlayerCombat : Component
 		if ( _shockwaveFinished )
 			return;
 
-		var waveTravel = MathF.Min( f.Duration, f.WaveDepth / MathF.Max( 0.01f, f.WaveSpeed ) );
-		var elapsed = now - _finisherStartTime;
+		// Hold both the damage sweep and its visuals until WaveLead - the animation's slam beat -
+		// so the hit and the effect land exactly when the slam reads, not at t=0.
+		var elapsed = now - _finisherStartTime - f.WaveLead;
+		if ( elapsed < 0f )
+			return;
+
+		SpawnShockwaveVfx( f );
+
+		var waveTravel = MathF.Max( 0.01f,
+			MathF.Min( f.Duration - f.WaveLead, f.WaveDepth / MathF.Max( 0.01f, f.WaveSpeed ) ) );
 
 		if ( elapsed >= waveTravel )
 		{
@@ -355,6 +379,23 @@ public class PlayerCombat : Component
 		}
 
 		DoShockwaveHit( f, f.WaveSpeed * elapsed );
+	}
+
+	/// <summary>Fires the slam's impact burst and the traveling shockwave front exactly once, the
+	/// frame the wave launches. Shared by the live driver and the end-of-finisher catch-up so the
+	/// visuals are never skipped if a frame spike swallows the launch beat.</summary>
+	void SpawnShockwaveVfx( FinisherDefinition f )
+	{
+		if ( _shockwaveVfxSpawned )
+			return;
+
+		_shockwaveVfxSpawned = true;
+
+		HitFeedback.PlaySwing( f.StrikeSound, 0.04f );
+
+		Vfx.SlamImpact( _shockwaveOrigin, _shockwaveFacing, f.Range );
+		Vfx.ShockwaveFront( _shockwaveOrigin, _shockwaveFacing, f.WaveSpeed,
+			MathF.Min( f.Duration, f.WaveDepth / MathF.Max( 0.01f, f.WaveSpeed ) ), f.ArcDegrees );
 	}
 
 	void DoAoeSpinPulse( FinisherDefinition f, int index )
@@ -371,6 +412,7 @@ public class PlayerCombat : Component
 		}
 
 		Vfx.AoePulseRing( origin, f.Range, new Color( 1f, 0.8f, 0.3f ) );
+		HitFeedback.PlaySwing( f.StrikeSound, 0.06f );
 		HitFeedback.PlayFinisherImpact( f.ImpactStrength * 0.5f, hits.Count );
 	}
 
@@ -388,10 +430,12 @@ public class PlayerCombat : Component
 		foreach ( var enemy in hits )
 			ApplyFinisherHit( f, enemy, origin, facing, damage, knockback, stagger );
 
+		HitFeedback.PlaySwing( f.StrikeSound, 0.12f );
+
 		if ( isFinal )
 		{
 			Vfx.FinisherBurst( origin + facing * (f.Range * 0.6f) + Vector3.Up * 55f );
-			HitFeedback.PlayFinisherImpact( f.ImpactStrength, hits.Count );
+			HitFeedback.PlayFinisherImpact( f.ImpactStrength, hits.Count, f.FinalImpactSound );
 		}
 		else
 		{
@@ -403,12 +447,22 @@ public class PlayerCombat : Component
 	{
 		var hits = HitDetector.FindEnemies( _shockwaveOrigin, _shockwaveFacing, reach, f.ArcDegrees );
 
+		var landed = 0;
 		foreach ( var enemy in hits )
 		{
 			if ( _finisherHitSet.Contains( enemy ) )
 				continue;
 
 			ApplyFinisherHit( f, enemy, _shockwaveOrigin, _shockwaveFacing, f.Damage, f.Knockback, f.StaggerTime );
+			landed++;
+		}
+
+		// The slam's "extra heavy hit" fires once, the first time the wavefront actually connects -
+		// gated on a real hit so a shockwave that reaches nobody stays a whoosh. See FinalImpactSound.
+		if ( landed > 0 && !_shockwaveImpactPlayed )
+		{
+			_shockwaveImpactPlayed = true;
+			HitFeedback.PlayFinisherImpact( f.ImpactStrength, _finisherHitSet.Count, f.FinalImpactSound );
 		}
 	}
 

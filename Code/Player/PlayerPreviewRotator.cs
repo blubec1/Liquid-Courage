@@ -48,8 +48,12 @@ public class PlayerPreviewRotator : Component
 
 	public void SetVisible( bool visible )
 	{
-		if ( BodyRenderer is not null )
-			BodyRenderer.Enabled = visible;
+		// Toggle the whole stand GameObject, not just its SkinnedModelRenderer. ClothingContainer.Apply
+		// parents every clothing item as a child GameObject with its own renderer, so disabling only the
+		// stand's own renderer left the clothes floating in the world after entering a run. Disabling the
+		// root hides the body, every clothing child, and stops this component's per-frame rotation in one
+		// shot - re-enabling restores all of it for the next Customize visit.
+		GameObject.Enabled = visible;
 	}
 
 	protected override void OnDestroy()

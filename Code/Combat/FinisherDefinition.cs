@@ -67,6 +67,19 @@ public class FinisherDefinition
 	/// choice between different moves rather than four identical terms.</summary>
 	public string Blurb;
 
+	/// <summary>Whoosh cue played the instant the finisher begins (its wind-up), whether or not it
+	/// connects. See HitFeedback.PlaySwing.</summary>
+	public string SwingSound;
+
+	/// <summary>Per-beat whoosh for timed finishers - each jab/pulse tick, and the shockwave slam
+	/// release. Played by PlayerCombat's finisher driver. See HitFeedback.PlaySwing.</summary>
+	public string StrikeSound;
+
+	/// <summary>Optional impact cue for this finisher's final/landing hit (the haymaker closer, the
+	/// slam). Null/empty falls back to the strength-bucketed impact sound, so only finishers that
+	/// want a distinct "extra heavy hit" need to set it. See HitFeedback.PlayFinisherImpact.</summary>
+	public string FinalImpactSound;
+
 	// --- AoeSpinPulses ---
 	/// <summary>Seconds before the first pulse lands (lets the spin wind up).</summary>
 	public float PulseLead = 0.25f;
@@ -79,8 +92,15 @@ public class FinisherDefinition
 	public float WaveSpeed = 1000f;
 	/// <summary>Total distance the wavefront travels before it dissipates.</summary>
 	public float WaveDepth = 300f;
+	/// <summary>Seconds from the finisher's start until the wave launches (lets the windup/slam
+	/// animation play). Both the damage sweep and the VFX are held until this beat, so the visible
+	/// slam and its hit land together instead of the effect firing at t=0 and being gone by the time
+	/// the animation's impact actually reads.</summary>
+	public float WaveLead = 0f;
 
 	// --- RapidCombo ---
+	/// <summary>Seconds from the finisher's start until the first strike lands (lets a windup play).</summary>
+	public float StrikeLead = 0f;
 	/// <summary>Seconds between strikes (including the final closer).</summary>
 	public float StrikeInterval = 0.12f;
 	/// <summary>Total strikes including the final closer. Keep TickStagger >= StrikeInterval * 1.5
@@ -97,6 +117,10 @@ public class FinisherDefinition
 	public float FinalHitKnockback = 0f;
 	/// <summary>Stagger on the final closer. 0 = falls back to StaggerTime.</summary>
 	public float FinalHitStagger = 0f;
+	/// <summary>Seconds before the end of the finisher that the final closer lands. 0 = use the
+	/// normal uniform StrikeInterval schedule. Lets a finisher sync its heavy hit to the end of its
+	/// windup animation instead of mid-swing.</summary>
+	public float FinalStrikeLeadFromEnd = 0f;
 
 	/// <summary>Name of a Citizen-compatible animation sequence for this finisher, or null/empty for the procedural version.</summary>
 	public string Animation;
@@ -138,22 +162,27 @@ public static class FinisherLibrary
 			Name = "Haymaker Combo",
 			Sequence = new[] { AttackId.Punch, AttackId.Punch, AttackId.Heavy },
 			Behavior = FinisherBehavior.RapidCombo,
-			Damage = 7,
+			Damage = 14,
 			Range = 95,
 			ArcDegrees = 60,
-			StrikeInterval = 0.12f,
-			StrikeCount = 6,
+			StrikeLead = 0.3f,
+			StrikeInterval = 0.3f,
+			StrikeCount = 3,
 			StrikeArcDegrees = 60,
-			TickStagger = 0.2f,
+			TickStagger = 0.6f,
 			FinalHitDamageMultiplier = 3.5f,
 			FinalHitKnockback = 650,
 			FinalHitStagger = 1f,
+			FinalStrikeLeadFromEnd = 0.3f,
 			ScoreValue = 250,
 			ImpactStrength = 1f,
 			Knockback = 380,
 			StaggerTime = 0.7f,
 			Description = "Punch, Punch, Heavy",
 			Blurb = "jab row + heavy haymaker",
+			SwingSound = "sounds/combat/swing_heavy.sound",
+			StrikeSound = "sounds/combat/swing_light.sound",
+			FinalImpactSound = "sounds/combat/heavy_impact.sound",
 		},
 		new()
 		{
@@ -164,7 +193,7 @@ public static class FinisherLibrary
 			Name = "Sweep Breaker",
 			Sequence = new[] { AttackId.Kick, AttackId.Punch, AttackId.Heavy },
 			Behavior = FinisherBehavior.AoeSpinPulses,
-			Damage = 16,
+			Damage = 24,
 			Range = 150,
 			ArcDegrees = 360,
 			PulseLead = 0.25f,
@@ -177,6 +206,8 @@ public static class FinisherLibrary
 			StaggerTime = 0.75f,
 			Description = "Kick, Punch, Heavy",
 			Blurb = "360 degree spin aoe",
+			SwingSound = "sounds/combat/swing_finisher.sound",
+			StrikeSound = "sounds/combat/swing_heavy.sound",
 		},
 		new()
 		{
@@ -186,7 +217,7 @@ public static class FinisherLibrary
 			Name = "Flurry Jab",
 			Sequence = new[] { AttackId.Punch, AttackId.Kick, AttackId.Punch },
 			Behavior = FinisherBehavior.RapidCombo,
-			Damage = 6,
+			Damage = 10,
 			Range = 90,
 			ArcDegrees = 60,
 			StrikeInterval = 0.12f,
@@ -202,6 +233,8 @@ public static class FinisherLibrary
 			StaggerTime = 0.5f,
 			Description = "Punch, Kick, Punch",
 			Blurb = "rapid jab row",
+			SwingSound = "sounds/combat/swing_light.sound",
+			StrikeSound = "sounds/combat/swing_light.sound",
 		},
 		new()
 		{
@@ -215,15 +248,19 @@ public static class FinisherLibrary
 			Behavior = FinisherBehavior.LineShockwave,
 			Damage = 85,
 			Range = 320,
-			ArcDegrees = 26,
-			WaveSpeed = 1000f,
+			ArcDegrees = 80,
+			WaveSpeed = 700f,
 			WaveDepth = 320f,
+			WaveLead = 1f,
 			ScoreValue = 280,
 			ImpactStrength = 1.2f,
 			Knockback = 700,
 			StaggerTime = 1f,
 			Description = "Heavy, Punch, Kick",
 			Blurb = "line shockwave",
+			SwingSound = "sounds/combat/swing_finisher.sound",
+			StrikeSound = "sounds/combat/swing_heavy.sound",
+			FinalImpactSound = "sounds/combat/heavy_impact.sound",
 		},
 	};
 }

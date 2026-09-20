@@ -143,8 +143,6 @@ public class PlayerAnimationDriver : Component
 				.Where( b => b is not null )
 				.ToArray();
 
-			Log.Info( $"[AnimBlend] Resolved {_overrideBones.Length}/{UpperBodyBones.Length} upper-body bones on model '{_bodyRenderer.Model?.ResourceName}'." );
-
 			if ( _overrideBones.Length == 0 )
 			{
 				Log.Warning( "[AnimBlend] No bones resolved - bone-blend attacks will fall back to full-body swap. Check that the model's bone names match the Citizen rig (spine_0, clavicle_L, etc.)." );
@@ -166,8 +164,6 @@ public class PlayerAnimationDriver : Component
 			// transform onto the real body every frame before sampling, so the bone transforms it
 			// reports are already in the right space and need no further offsetting.
 			try { _sampleModel.RenderingEnabled = false; } catch { }
-
-			Log.Info( "[AnimBlend] Hidden sample model created OK." );
 		}
 		catch ( System.Exception ex )
 		{
@@ -287,10 +283,7 @@ public class PlayerAnimationDriver : Component
 			return false;
 
 		if ( _sampleModel is null || _overrideBones is null )
-		{
-			Log.Info( $"[AnimBlend] '{sequenceName}': no sample model/bones, falling back to full-body swap." );
 			return TryPlaySequenceFull( sequenceName, duration );
-		}
 
 		try
 		{
@@ -301,8 +294,6 @@ public class PlayerAnimationDriver : Component
 			_currentBlendWeight = 0f;
 			_attackSequenceActive = true;
 			_attackSequenceRevertTime = Time.Now + duration;
-
-			Log.Info( $"[AnimBlend] Playing '{sequenceName}' (blended, {duration:0.00}s)." );
 			return true;
 		}
 		catch ( System.Exception ex )
@@ -332,7 +323,6 @@ public class PlayerAnimationDriver : Component
 
 			_drinkSequenceActive = true;
 			_drinkSequenceRevertTime = Time.Now + duration;
-			Log.Info( $"[AnimBlend] Playing '{sequenceName}' (full-body swap, {duration:0.00}s)." );
 			return true;
 		}
 		catch ( System.Exception ex )
@@ -403,7 +393,6 @@ public class PlayerAnimationDriver : Component
 				sceneModel.UseAnimGraph = false;
 				sceneModel.CurrentSequence.Name = DrunkWalkAnimation;
 				_drunkWalkActive = true;
-				Log.Info( $"[DrunkWalk] Entered drunk-walk loop ('{DrunkWalkAnimation}')." );
 			}
 			catch ( System.Exception ex )
 			{
@@ -473,9 +462,6 @@ public class PlayerAnimationDriver : Component
 			return;
 		}
 
-		bool isFirstFrame = _sequenceTime <= 0f;
-		int hitCount = 0, missCount = 0;
-
 		try
 		{
 			_sequenceTime += Time.Delta;
@@ -506,10 +492,7 @@ public class PlayerAnimationDriver : Component
 				// and before any SetBoneOverride effects), avoiding a feedback loop where previously-set
 				// overrides contaminate the next frame's read.
 				if ( !_bodyRenderer.TryGetBoneTransformAnimation( bone, out var animWorldTx ) )
-				{
-					missCount++;
 					continue;
-				}
 				// Both are world-space at the same world position (sample model synced above).
 				var attackWorldTx = _sampleModel.GetBoneWorldTransform( bone.Index );
 				var blendedWorld = animWorldTx.LerpTo( attackWorldTx, _currentBlendWeight );
@@ -518,16 +501,6 @@ public class PlayerAnimationDriver : Component
 				// Convert the world-space blend result via the SceneModel's world transform.
 				var blendedLocal = modelWorldTx.ToLocal( blendedWorld );
 				_bodyRenderer.SetBoneTransform( bone, blendedLocal );
-				hitCount++;
-			}
-
-			if ( isFirstFrame )
-			{
-				// Dump a few raw transforms so we can verify the values are sane at runtime.
-				_bodyRenderer.TryGetBoneTransformAnimation( _overrideBones[0], out var diagAnim );
-				var diagAttack = _sampleModel.GetBoneWorldTransform( _overrideBones[0].Index );
-				Log.Info( $"[AnimBlend] First blend frame: {hitCount} bones overridden, {missCount} missed, weight={_currentBlendWeight:0.00}, sampleSeqTime={_sampleModel.CurrentSequence.Time:0.000}." );
-				Log.Info( $"[AnimBlend]   bone[0]='{_overrideBones[0].Name}' animPos={diagAnim.Position:0.00} attackPos={diagAttack.Position:0.00}" );
 			}
 		}
 		catch ( System.Exception ex )
