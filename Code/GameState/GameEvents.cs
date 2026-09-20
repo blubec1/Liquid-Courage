@@ -21,6 +21,10 @@ public static class GameEvents
 	public static event Action<int> DrinkTriggered;
 	public static void RaiseDrinkTriggered( int glassNumber ) => DrinkTriggered?.Invoke( glassNumber );
 
+	/// <summary>Fired when the player presses the sober-up button (F) and a hangover kicks in.</summary>
+	public static event Action SoberUpPerformed;
+	public static void RaiseSoberUpPerformed() => SoberUpPerformed?.Invoke();
+
 	/// <summary>Fired when drunkenness enters the dangerous "Last Call" band.</summary>
 	public static event Action LastCallEntered;
 	public static void RaiseLastCallEntered() => LastCallEntered?.Invoke();
@@ -43,7 +47,7 @@ public static class GameEvents
 	public static event Action<float, float> PlayerDamaged;
 	public static void RaisePlayerDamaged( float amount, float fraction01 ) => PlayerDamaged?.Invoke( amount, fraction01 );
 
-	/// <summary>Fired whenever an enemy dies. Passes whether it was a sobering enemy, a finisher kill, and an environmental kill.</summary>
+	/// <summary>Fired whenever an enemy dies. Passes whether it was a finisher kill and an environmental kill.</summary>
 	public static event Action<EnemyKillInfo> EnemyKilled;
 	public static void RaiseEnemyKilled( EnemyKillInfo info ) => EnemyKilled?.Invoke( info );
 
@@ -71,9 +75,19 @@ public static class GameEvents
 	public static event Action<float, float> ShakeRequested;
 	public static void RaiseShakeRequested( float amount, float duration ) => ShakeRequested?.Invoke( amount, duration );
 
-	/// <summary>Ask for a brief hit-stop (time scale dip). Duration in seconds (real time).</summary>
-	public static event Action<float> HitStopRequested;
-	public static void RaiseHitStopRequested( float duration ) => HitStopRequested?.Invoke( duration );
+	/// <summary>Fired every time damage actually lands on anyone (enemy or player), for the floating
+	/// damage number HUD. Args = world position to float the number up from, the amount, and what
+	/// kind of hit it was (drives color/size).</summary>
+	public static event Action<Vector3, float, DamageNumberKind> DamageNumber;
+	public static void RaiseDamageNumber( Vector3 worldPos, float amount, DamageNumberKind kind ) => DamageNumber?.Invoke( worldPos, amount, kind );
+}
+
+/// <summary>What kind of hit a floating damage number represents - purely cosmetic (color/size).</summary>
+public enum DamageNumberKind
+{
+	Normal,
+	Finisher,
+	PlayerDamage,
 }
 
 /// <summary>Small payload describing an enemy death, used for scoring/style/drunkenness hooks.</summary>
@@ -82,6 +96,5 @@ public struct EnemyKillInfo
 	public EnemyBase Enemy;
 	public bool WasFinisher;
 	public bool WasEnvironmental;
-	public bool WasSobering;
 	public int MultiKillIndex; // 0 = first kill in this window, 1 = second, etc.
 }

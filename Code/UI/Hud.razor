@@ -1,5 +1,7 @@
 @using Sandbox;
 @using Sandbox.UI;
+@using System;
+@using System.Collections.Generic;
 @using DrunkenBarFight;
 @inherits PanelComponent
 @namespace DrunkenBarFight
@@ -13,9 +15,17 @@
 
 		<div class="damage-vignette @(HasDamageFlash ? "visible" : "")" style="opacity:@(DamageFlashOpacity);"></div>
 
+		<div class="low-hp-vignette" style="opacity:@(LowHpVignetteOpacity.ToString( "0.###" ));"></div>
+
+		<div class="chroma-flash" style="opacity:@(ChromaFlashOpacity.ToString( "0.###" ));">
+			<div class="chroma-layer chroma-red" style="transform:translateX(-@(ChromaOffsetPx.ToString( "0.#" ))px);"></div>
+			<div class="chroma-layer chroma-cyan" style="transform:translateX(@(ChromaOffsetPx.ToString( "0.#" ))px);"></div>
+			<div class="desat-wash"></div>
+		</div>
+
 		<div class="top-left">
 			<div class="bar-label">HP</div>
-			<div class="hp-bar-bg">
+			<div class="hp-bar-bg" style="box-shadow:0 0 @((6f + HeartbeatPulse01 * 14f).ToString( "0.#" ))px rgba(255,30,30,@(HeartbeatPulse01.ToString( "0.###" )));">
 				<div class="hp-bar-fill" style="width:@((HpFraction * 100).ToString( "0.##" ))%;"></div>
 			</div>
 			<div class="hp-text">@HpText</div>
@@ -54,7 +64,21 @@
 			<div class="finisher-title">FINISHERS</div>
 			@foreach ( var f in FinisherLibrary.All )
 			{
-				<div class="finisher-row">@f.Description &rarr; @f.Name</div>
+				<div class="finisher-row">@f.Description &rarr; @f.Name <span class="finisher-blurb">(@f.Blurb)</span></div>
+			}
+		</div>
+
+		<div class="damage-numbers-layer">
+			@foreach ( var d in DamageNumberViews )
+			{
+				<div class="damage-number" style="left:@(d.LeftPercent.ToString( "0.##" ))%; top:@(d.TopPercent.ToString( "0.##" ))%; opacity:@(d.Opacity.ToString( "0.##" )); color:@(d.ColorHex); transform:translate(-50%,-50%) scale(@(d.Scale.ToString( "0.##" )));">@d.Text</div>
+			}
+		</div>
+
+		<div class="enemy-indicators-layer">
+			@foreach ( var e in EnemyIndicatorViews )
+			{
+				<div class="enemy-indicator" style="left:@(e.LeftPercent.ToString( "0.##" ))%; top:@(e.TopPercent.ToString( "0.##" ))%; transform:translate(-50%,-50%) rotate(@(e.AngleDeg.ToString( "0.##" ))deg);"></div>
 			}
 		</div>
 
@@ -127,6 +151,7 @@
 
 	// --- Drunkenness VFX (deliberately no numeric bar - see DrunkennessSystem) ---
 	public bool IsLastCall => DrunkennessSystem.Local?.IsLastCall ?? false;
+
 	public float BlackoutFraction => DrunkennessSystem.Local?.BlackoutFraction01 ?? 0f;
 	public bool ShowBlackout => BlackoutFraction > 0f;
 
@@ -139,7 +164,10 @@
 		}
 	}
 
-	public float VignetteOpacity => System.Math.Clamp( (DrunkFraction01 - 0.2f) / 0.8f, 0f, 1f ) * 0.55f;
+	// Starts creeping in from a very light buzz (~5% drunk) rather than waiting for 20%, so the
+	// screen tells the player they're drinking well before the danger zone - peak opacity is
+	// unchanged, so it still only gets heavy as things get serious.
+	public float VignetteOpacity => System.Math.Clamp( (DrunkFraction01 - 0.05f) / 0.95f, 0f, 1f ) * 0.55f;
 
 	public string VignetteColor
 	{
@@ -197,6 +225,281 @@
 	{
 		_damageFlashStart = Time.Now;
 		_damageFlashPeak = System.Math.Clamp( 0.25f + fraction01 * 1.8f, 0.25f, 0.8f );
+
+		// Extra "disorienting" punch layered on top of the plain damage-vignette flash above, only
+		// for hits big enough to matter (same 0.12 threshold HitFeedback/PlayPlayerHurt uses to pick
+		// its "heavy" cue) - timed against the damage flash so the screen warp reads in sync with the
+		// hit instead of the effects landing out of sync.
+		if ( fraction01 >= BigHitThreshold )
+		{
+			_chromaFlashStart = Time.Now;
+			_chromaFlashPeak = System.Math.Clamp( fraction01 * 1.4f, 0.35f, 1f );
+		}
+	}
+
+	// --- Low-HP heartbeat vignette (persistent while HP is dangerously low - separate from both
+	// the drunk-sway vignette above and the one-shot per-hit damage flash, so being low reads
+	// continuously rather than only for the instant a hit lands) ---
+	const float LowHpThreshold = 0.32f;
+
+	/// <summary>0-1 heartbeat pulse, silent (0) above LowHpThreshold. Two quick decaying spikes per
+	/// beat cycle ("lub-dub") rather than a single smooth sine, so it actually reads as a heartbeat
+	/// instead of a slow breathing glow. Both rate and intensity ramp up as HP gets closer to zero.
+	/// Shared by the vignette and the HP bar's glow below so they pulse in lockstep.</summary>
+	public float HeartbeatPulse01
+	{
+		get
+		{
+			var frac = HpFraction;
+			if ( frac >= LowHpThreshold )
+				return 0f;
+
+			var danger01 = System.Math.Clamp( 1f - frac / LowHpThreshold, 0f, 1f );
+			var bpm = 70f + danger01 * 90f; // 70bpm at the threshold, up to 160bpm near death
+			var phase = (Time.Now * (bpm / 60f)) % 1f;
+
+			var pulse = Beat( phase, 0f ) + Beat( phase, 0.18f ) * 0.6f;
+			var baseline = 0.1f + danger01 * 0.15f;
+
+			return System.Math.Clamp( baseline + pulse * (0.3f + danger01 * 0.4f), 0f, 1f );
+		}
+	}
+
+	/// <summary>Sharp-attack, fast-decay pulse shape (a "thump", not a symmetric sine bump) centered
+	/// at the given phase offset within a 0-1 beat cycle.</summary>
+	static float Beat( float phase, float offset )
+	{
+		var d = phase - offset;
+		if ( d < 0f )
+			d += 1f;
+
+		const float width = 0.09f;
+		if ( d > width )
+			return 0f;
+
+		var t = d / width;
+		return (1f - t) * (1f - t);
+	}
+
+	public float LowHpVignetteOpacity => HeartbeatPulse01 * 0.85f;
+
+	// --- Big-hit chromatic-aberration/desaturation pulse (see OnPlayerDamaged above) ---
+	const float BigHitThreshold = 0.12f;
+	const float ChromaFlashDuration = 0.22f;
+
+	float _chromaFlashStart = -999f;
+	float _chromaFlashPeak;
+
+	public bool HasChromaFlash => Time.Now - _chromaFlashStart < ChromaFlashDuration;
+
+	public float ChromaFlashOpacity
+	{
+		get
+		{
+			if ( !HasChromaFlash )
+				return 0f;
+
+			var t = System.Math.Clamp( (Time.Now - _chromaFlashStart) / ChromaFlashDuration, 0f, 1f );
+			return _chromaFlashPeak * (1f - t);
+		}
+	}
+
+	/// <summary>How far apart the red/cyan fringe layers sit, in px - widest right at the start of
+	/// the flash, snapping back together as it fades (a "split apart then slam shut" read).</summary>
+	public float ChromaOffsetPx
+	{
+		get
+		{
+			if ( !HasChromaFlash )
+				return 0f;
+
+			var t = System.Math.Clamp( (Time.Now - _chromaFlashStart) / ChromaFlashDuration, 0f, 1f );
+			return (1f - t) * 10f * _chromaFlashPeak;
+		}
+	}
+
+	// --- Floating damage numbers ---
+	class DamageNumberEntry
+	{
+		public Vector3 WorldPos;
+		public float Amount;
+		public DamageNumberKind Kind;
+		public float SpawnTime;
+		public float JitterPercent;
+	}
+
+	public struct DamageNumberView
+	{
+		public float LeftPercent;
+		public float TopPercent;
+		public float Opacity;
+		public float Scale;
+		public string Text;
+		public string ColorHex;
+	}
+
+	const float DamageNumberDuration = 0.9f;
+	const int MaxDamageNumbers = 60;
+	readonly List<DamageNumberEntry> _damageNumbers = new();
+
+	static bool _loggedFirstDamageNumber;
+
+	void OnDamageNumber( Vector3 worldPos, float amount, DamageNumberKind kind )
+	{
+		_damageNumbers.Add( new DamageNumberEntry
+		{
+			WorldPos = worldPos,
+			Amount = amount,
+			Kind = kind,
+			SpawnTime = Time.Now,
+			JitterPercent = (Random.Shared.NextSingle() - 0.5f) * 3.5f,
+		} );
+
+		// Cap so a long combat storm can't grow this list forever - drop the oldest first.
+		while ( _damageNumbers.Count > MaxDamageNumbers )
+			_damageNumbers.RemoveAt( 0 );
+
+		// One-shot diagnostic so we can see in the console whether the whole projection pipeline
+		// (camera resolution + PointToScreenNormal) is actually working the very first time a hit
+		// lands, rather than guessing blind if numbers never show up on screen.
+		if ( !_loggedFirstDamageNumber )
+		{
+			_loggedFirstDamageNumber = true;
+			try
+			{
+				var cam = IsoCameraRig.Instance?.Camera ?? Scene?.Camera;
+				if ( cam is null )
+				{
+					Log.Warning( "[DamageNumbers] No camera resolved (IsoCameraRig.Instance and Scene.Camera both null) - damage numbers will never show." );
+				}
+				else
+				{
+					var sp = cam.PointToScreenNormal( worldPos + Vector3.Up * 55f );
+					Log.Info( $"[DamageNumbers] First hit: worldPos={worldPos} camPos={cam.WorldPosition} screenNormal=({sp.x:0.###},{sp.y:0.###}) - expect roughly 0..1 on both axes if this is on-screen." );
+				}
+			}
+			catch ( System.Exception ex )
+			{
+				Log.Warning( $"[DamageNumbers] Diagnostic projection threw: {ex.Message}" );
+			}
+		}
+	}
+
+	/// <summary>Projects each live damage number from its world position onto the screen, rising and
+	/// fading over its lifetime. Anything expired or off-screen is skipped (and pruned lazily here
+	/// rather than needing a separate OnUpdate tick).</summary>
+	public IEnumerable<DamageNumberView> DamageNumberViews
+	{
+		get
+		{
+			var cam = IsoCameraRig.Instance?.Camera ?? Scene?.Camera;
+			if ( cam is null )
+				yield break;
+
+			var now = Time.Now;
+
+			for ( int i = _damageNumbers.Count - 1; i >= 0; i-- )
+			{
+				var d = _damageNumbers[i];
+				var elapsed = now - d.SpawnTime;
+
+				if ( elapsed > DamageNumberDuration )
+				{
+					_damageNumbers.RemoveAt( i );
+					continue;
+				}
+
+				if ( elapsed < 0f )
+					continue;
+
+				var t = elapsed / DamageNumberDuration;
+				var risePos = d.WorldPos + Vector3.Up * (t * 55f);
+
+				var toPoint = risePos - cam.WorldPosition;
+				if ( Vector3.Dot( cam.WorldRotation.Forward, toPoint.Normal ) < 0.1f )
+					continue;
+
+				var sp = cam.PointToScreenNormal( risePos );
+				if ( sp.x < -0.05f || sp.x > 1.05f || sp.y < -0.05f || sp.y > 1.05f )
+					continue;
+
+				var opacity = t < 0.65f ? 1f : 1f - (t - 0.65f) / 0.35f;
+				var scale = t < 0.15f ? (0.6f + 0.4f * (t / 0.15f)) : 1f;
+
+				yield return new DamageNumberView
+				{
+					LeftPercent = sp.x * 100f + d.JitterPercent,
+					TopPercent = sp.y * 100f,
+					Opacity = opacity,
+					Scale = scale,
+					Text = $"{d.Amount:0}",
+					ColorHex = d.Kind switch
+					{
+						DamageNumberKind.Finisher => "#ffd257",
+						DamageNumberKind.PlayerDamage => "#ff4d4d",
+						_ => "#ffffff",
+					},
+				};
+			}
+		}
+	}
+
+	// --- Off-screen enemy direction indicators ---
+	public struct EnemyIndicatorView
+	{
+		public float LeftPercent;
+		public float TopPercent;
+		public float AngleDeg;
+	}
+
+	/// <summary>For every living enemy currently outside the visible screen rect, returns a marker
+	/// clamped to the screen edge and rotated to point toward it - the fixed-height orthographic
+	/// camera means enemies spawning on the far side of the 800-unit ring can approach with zero
+	/// warning otherwise.</summary>
+	public IEnumerable<EnemyIndicatorView> EnemyIndicatorViews
+	{
+		get
+		{
+			var cam = IsoCameraRig.Instance?.Camera ?? Scene?.Camera;
+			if ( cam is null || GameManager.Instance?.State != RunState.Playing )
+				yield break;
+
+			const float margin = 0.07f;
+			const float half = 0.5f - margin;
+
+			foreach ( var enemy in EnemyBase.All )
+			{
+				if ( enemy is null || !enemy.IsValid || enemy.IsDead )
+					continue;
+
+				var worldPos = enemy.WorldPosition + Vector3.Up * 40f;
+				var toPoint = worldPos - cam.WorldPosition;
+				if ( Vector3.Dot( cam.WorldRotation.Forward, toPoint.Normal ) < 0.1f )
+					continue;
+
+				var sp = cam.PointToScreenNormal( worldPos );
+
+				var onScreen = sp.x >= margin && sp.x <= 1f - margin && sp.y >= margin && sp.y <= 1f - margin;
+				if ( onScreen )
+					continue;
+
+				var dx = sp.x - 0.5f;
+				var dy = sp.y - 0.5f;
+				if ( System.MathF.Abs( dx ) < 0.0001f && System.MathF.Abs( dy ) < 0.0001f )
+					continue;
+
+				var tX = dx != 0f ? half / System.MathF.Abs( dx ) : float.MaxValue;
+				var tY = dy != 0f ? half / System.MathF.Abs( dy ) : float.MaxValue;
+				var t = System.MathF.Min( tX, tY );
+
+				yield return new EnemyIndicatorView
+				{
+					LeftPercent = (0.5f + dx * t) * 100f,
+					TopPercent = (0.5f + dy * t) * 100f,
+					AngleDeg = System.MathF.Atan2( dy, dx ) * (180f / System.MathF.PI),
+				};
+			}
+		}
 	}
 
 	// --- Cooldown / crosshair ---
@@ -227,20 +530,30 @@
 		_toastEndTime = Time.Now + 3.5f;
 	}
 
+	void OnSoberUpPerformed()
+	{
+		_toastText = "SOBER UP";
+		_toastEndTime = Time.Now + 1.6f;
+	}
+
 	protected override void OnStart()
 	{
 		GameEvents.Milestone += OnMilestone;
 		GameEvents.DrinkTriggered += OnDrinkTriggered;
+		GameEvents.SoberUpPerformed += OnSoberUpPerformed;
 		GameEvents.ComboHit += OnComboHit;
 		GameEvents.PlayerDamaged += OnPlayerDamaged;
+		GameEvents.DamageNumber += OnDamageNumber;
 	}
 
 	protected override void OnDestroy()
 	{
 		GameEvents.Milestone -= OnMilestone;
 		GameEvents.DrinkTriggered -= OnDrinkTriggered;
+		GameEvents.SoberUpPerformed -= OnSoberUpPerformed;
 		GameEvents.ComboHit -= OnComboHit;
 		GameEvents.PlayerDamaged -= OnPlayerDamaged;
+		GameEvents.DamageNumber -= OnDamageNumber;
 	}
 
 	// s&box Razor panels only rebuild when this hash changes - without it the HUD renders once
@@ -272,7 +585,7 @@
 			(int)(Time.Now * 12),
 			PlayerCombat.Local?.CooldownFraction01 );
 
-		return System.HashCode.Combine( h1, h2, ShowHud, HasDamageFlash );
+		return System.HashCode.Combine( h1, h2, ShowHud, HasDamageFlash, HasChromaFlash, _damageNumbers.Count );
 	}
 }
 
@@ -311,6 +624,44 @@
 		height: 100%;
 		opacity: 0;
 		background: radial-gradient(ellipse at center, transparent 35%, rgba(180,0,10,0.9) 100%);
+	}
+
+	.low-hp-vignette {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		background: radial-gradient(ellipse at center, transparent 38%, rgba(160,0,0,0.9) 100%);
+		opacity: 0;
+	}
+
+	.chroma-flash {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		opacity: 0;
+	}
+
+	.chroma-layer {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		mix-blend-mode: screen;
+	}
+
+	.chroma-red {
+		background: radial-gradient(ellipse at center, transparent 12%, rgba(255,30,30,0.55) 130%);
+	}
+
+	.chroma-cyan {
+		background: radial-gradient(ellipse at center, transparent 12%, rgba(30,220,255,0.5) 130%);
+	}
+
+	.desat-wash {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		background-color: rgba(210,210,210,0.6);
+		mix-blend-mode: saturation;
 	}
 
 	.top-left {
@@ -541,5 +892,37 @@
 		color: white;
 		font-size: 12px;
 		opacity: 0.85;
+	}
+
+	.finisher-blurb {
+		color: #ffb85c;
+		opacity: 0.9;
+	}
+
+	.damage-numbers-layer, .enemy-indicators-layer {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		top: 0;
+		left: 0;
+	}
+
+	.damage-number {
+		position: absolute;
+		font-weight: 800;
+		font-size: 22px;
+		color: white;
+		text-shadow: 0 2px 3px black, 0 0 10px rgba(0,0,0,0.7);
+		white-space: nowrap;
+	}
+
+	.enemy-indicator {
+		position: absolute;
+		width: 0;
+		height: 0;
+		border-top: 8px solid transparent;
+		border-bottom: 8px solid transparent;
+		border-left: 15px solid rgba(255,60,60,0.85);
+		filter: drop-shadow(0 0 4px rgba(255,20,20,0.7));
 	}
 </style>

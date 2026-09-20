@@ -28,7 +28,7 @@ Every system from the spec, organized under `Code/`:
 - `Scoring/` - the multiplier formula (combo x drunkenness x style) and the style bonus system.
 - `Player/` - movement, mouse-aim facing, HP, the attack/finisher input loop, and the procedural
   attack "animation" (see below).
-- `Enemies/` - Brawler, Bruiser (telegraphed heavy attack), Sobering Bartender.
+- `Enemies/` - Brawler, Bruiser (telegraphed heavy attack).
 - `Horde/` - ramping spawner + milestone announcements.
 - `Pickups/`, `Environment/` - sobering pickups, throwable bottles.
 - `Camera/` - fixed isometric camera, follow + screenshake.
@@ -48,12 +48,14 @@ start working as-is. Until then, the death screen will just show "Unavailable" f
 
 **2. There's no custom art or audio.** Player and all enemies use the stock Citizen model
 (tinted/scaled per archetype instead of separate models - Brawler reddish, Bruiser dark red and
-1.35x scale, Sobering Bartender gold). There are no punch/kick/heavy animation clips by default, so
+1.35x scale). There are no punch/kick/heavy animation clips by default, so
 attacks are a procedural lunge + squash/stretch on the model (see `PlayerAnimationDriver.cs`) -
-see "Adding real attack animations" below for how to swap in real clips. Sound calls
-(`HitFeedback.cs`) point at placeholder paths like `sounds/combat/heavy_impact.sound` that don't
-exist yet - they'll just silently no-op until you add real sound assets at those paths (or repoint
-the strings).
+see "Adding real attack animations" below for how to swap in real clips. The combat cues live in
+`sounds/combat/` and `sounds/ui/` - `light_impact`, `medium_impact`, `player_hurt`, `click`, and the
+synthesized placeholder swing whooshes (`swing_light`, `swing_kick`, `swing_heavy`, `swing_finisher`)
+all exist. Two referenced cues still have no asset and silently no-op until you add them (or repoint
+the strings): `sounds/combat/heavy_impact.sound` (Heavy) and `sounds/combat/finisher_impact.sound`
+(every finisher).
 
 **3. Eyeball the arena scale.** I sized the floor/walls in `bar.scene` from ratios inferred off
 the default template's dev models, not from measuring `plane.vmdl`/`box.vmdl` myself. Collision
@@ -149,7 +151,7 @@ on the Player that fills as you kill enemies (never decreases on its own) - kill
 it faster. When it hits max, every live enemy freezes for a beat, the player plays a "chug"
 animation (procedural head-tilt-back fallback, or a real clip if you wire one into
 `DrinkMeter.DrinkAnimation` the same way attacks work), and `DrunkennessSystem.DrinkGlass()` adds a
-flat 10 drunkenness. Max drunkenness is 150. It's the *only* way drunkenness goes up now - combo no
+flat 15 drunkenness. Max drunkenness is 150. It's the *only* way drunkenness goes up now - combo no
 longer feeds it at all. It decays on its own, 1 point every 15 seconds. There's still no numeric
 drunkenness display - it's entirely conveyed through VFX (see below) - but the death screen now
 shows "highest drunkenness reached / 150" instead of a percentage.

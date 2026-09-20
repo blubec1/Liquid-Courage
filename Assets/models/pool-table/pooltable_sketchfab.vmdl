@@ -1,0 +1,113 @@
+<!-- kv3 encoding:text:version{e21c7f3c-8a33-41c5-9977-a76d3a32aa0d} format:modeldoc30:version{8c2d7a91-9c42-4bf0-883a-5a3b1762d4f1} -->
+{
+	rootNode = 
+	{
+		_class = "RootNode"
+		children = 
+		[
+			{
+				_class = "MaterialGroupList"
+				children = 
+				[
+					{
+						_class = "DefaultMaterialGroup"
+						remaps = [  ]
+						use_global_default = true
+						global_default_material = "materials/pool-table/pool-table.vmat"
+					},
+				]
+			},
+			{
+				_class = "PhysicsShapeList"
+				children = 
+				[
+					{
+						_class = "PhysicsMeshFromRender"
+						parent_bone = ""
+						surface_prop = "default"
+						collision_tags = "solid"
+					},
+				]
+			},
+			{
+				_class = "RenderMeshList"
+				children = 
+				[
+					{
+						_class = "RenderMeshFile"
+						filename = "models/pool-table/pooltable_sketchfab.fbx"
+						import_translation = [ 0.0, 0.0, 0.0 ]
+						import_rotation = [ 0.0, 0.0, 0.0 ]
+						import_scale = 1.0
+						align_origin_x_type = "None"
+						align_origin_y_type = "None"
+						align_origin_z_type = "None"
+						parent_bone = ""
+						import_filter = 
+						{
+							exclude_by_default = true
+							exception_list = 
+							[
+								"Cube_017",
+								"Cube_018",
+								"Cube_024",
+								"Cube_025",
+								"Cube_026",
+								"Cube_027",
+								"Cylinder_033",
+								"Cylinder_035",
+								"Cylinder_036",
+								"Cylinder_037",
+								"Cylinder_039",
+								"Cylinder_040",
+								"Cylinder_041",
+								"Plane_029",
+								"Plane_030",
+								"Plane_031",
+								"Plane_032",
+								"Plane_033",
+								"Plane_034",
+								"Plane_035",
+								"Plane_036",
+								"Plane_037",
+								"Plane_038",
+								"Plane_039",
+								"Plane_040",
+								"Plane_041",
+								"Plane_042",
+								"Sphere_033",
+								"Sphere_034",
+								"Sphere_035",
+								"Sphere_036",
+								"Sphere_037",
+								"Sphere_038",
+								"Sphere_039",
+								"Sphere_040",
+								"Sphere_041",
+								"Sphere_042",
+								"Sphere_043",
+								"Sphere_044",
+								"Sphere_045",
+								"Sphere_046",
+								"Sphere_047",
+								"Sphere_048",
+								"Cube_028",
+								"Cylinder_042",
+								"Cylinder_043",
+								"Cylinder_044",
+								"Cylinder_045",
+								"Cylinder_046",
+								"Cylinder_047",
+								"Cylinder_048",
+							]
+						}
+					},
+				]
+			},
+		]
+		model_archetype = ""
+		primary_associated_entity = ""
+		anim_graph_name = ""
+		base_model_name = ""
+	}
+}

@@ -1,0 +1,21 @@
+{
+  "publish": {
+    "Enabled": false,
+    "ProjectConfig": {
+      "Title": "Pool Table",
+      "Type": "material",
+      "Org": "local",
+      "Ident": "pool_table",
+      "Schema": 0,
+      "IncludeSourceFiles": false,
+      "Resources": null,
+      "PackageReferences": null,
+      "EditorReferences": [],
+      "Mounts": null,
+      "IsStandaloneOnly": false,
+      "Metadata": {
+        "SingleAssetSource": "materials/pool-table/pool-table.vmat"
+      }
+    }
+  }
+}

@@ -58,6 +58,69 @@ public static class Vfx
 		catch { }
 	}
 
+	/// <summary>Ring of light points along a full circle around the player - one per Sweep Breaker
+	/// spin pulse, so each pulse reads as a shockwave coming off the spin. Centered on the player's
+	/// current position so a walking spin keeps dragging the ring along.</summary>
+	public static void AoePulseRing( Vector3 origin, float radius, Color color )
+	{
+		try
+		{
+			const int points = 10;
+			for ( int i = 0; i < points; i++ )
+			{
+				var angle = (i / (float)points) * MathF.PI * 2f;
+				var pos = origin + new Vector3( MathF.Cos( angle ), MathF.Sin( angle ), 0 ) * radius + Vector3.Up * 40f;
+				SpawnLightBurst( pos, color, 16f, 0.2f );
+			}
+		}
+		catch { }
+	}
+
+	/// <summary>Creates a short-lived FxShockwave front that sweeps forward from the player - the
+	/// Opening Slam line-shockwave's visuals. The component drives itself from the same speed and
+	/// duration the combat code uses, so the visible front matches the damage.</summary>
+	public static void ShockwaveFront( Vector3 origin, Vector3 facing, float speed, float duration, float arcDegrees )
+	{
+		try
+		{
+			var dir = new Vector3( facing.x, facing.y, 0 );
+			if ( dir.Length < 0.001f )
+				dir = Vector3.Forward;
+			else
+				dir /= dir.Length;
+
+			var go = new GameObject( true, "FxShockwave" ) { WorldPosition = origin };
+			var wave = go.Components.Create<FxShockwave>();
+			wave.StartPosition = origin;
+			wave.Direction = dir;
+			wave.Speed = speed;
+			wave.Duration = duration;
+			wave.ArcDegrees = arcDegrees;
+		}
+		catch { }
+	}
+
+	/// <summary>The instant the Opening Slam's shockwave launches: a ground ring at the player's
+	/// feet, a bright swipe across the slam's front arc, and a burst at the point of impact. Fired at
+	/// the animation's slam beat (see FinisherDefinition.WaveLead) so the heavy read lands together
+	/// with the damage - the traveling FxShockwave front then carries that energy forward.</summary>
+	public static void SlamImpact( Vector3 origin, Vector3 facing, float range )
+	{
+		try
+		{
+			var dir = new Vector3( facing.x, facing.y, 0 );
+			if ( dir.Length < 0.001f )
+				dir = Vector3.Forward;
+			else
+				dir /= dir.Length;
+
+			AoePulseRing( origin, range * 0.45f, new Color( 1f, 0.75f, 0.3f ) );
+			AttackArc( origin, dir, 80f, range * 0.6f, new Color( 1f, 0.8f, 0.35f ) );
+			FinisherBurst( origin + dir * (range * 0.35f) );
+		}
+		catch { }
+	}
+
 	/// <summary>Bigger double-flash plus a wider ring of scatter sparks for a finisher connecting.</summary>
 	public static void FinisherBurst( Vector3 position )
 	{
@@ -261,6 +324,75 @@ public static class Vfx
 			}
 		}
 		catch { }
+	}
+
+	// Loaded once and reused for every droplet - Model.Load re-resolving the same resource path on
+	// every single hit (up to a dozen+ calls per hit, times every enemy hit in the same frame
+	// during a wide swing or finisher) was the actual cause of the hitch reported whenever blood
+	// spawned; a Model is an immutable, safely-shared resource reference so caching it is free.
+	static Model _bloodModel;
+	static Model BloodModel => _bloodModel ??= Model.Load( "models/dev/box.vmdl" );
+
+	/// <summary>Small burst of dark-red debris chunks flying outward under gravity and splatting on
+	/// the ground - unlike every other effect here this uses FxDebris (solid tinted geometry)
+	/// rather than FxPointLight (a glow), since a light burst alone doesn't read as "blood", it
+	/// reads as "flash". Severity01 scales both count and speed, same convention as
+	/// PlayerHit/HitSpark. Pass the raw hit-ish world position (NOT already offset upward) - this
+	/// owns its own chest-height offset internally.</summary>
+	public static void BloodSpatter( Vector3 position, float severity01 = 1f )
+	{
+		try
+		{
+			var s = MathF.Max( 0.4f, severity01 );
+			var center = position + Vector3.Up * 55f;
+			// Droplets fall back down to roughly where they were struck, not the ground plane at
+			// z=0 - keeps blood readable even on raised geometry (bar top, pool table, etc.).
+			var groundZ = position.z;
+
+			// Capped rather than left to grow unbounded with severity - keeps worst-case per-hit
+			// GameObject/component creation cost (the other big contributor to the hitch) in check
+			// even on a 1.5 severity finisher hit.
+			var dropletCount = System.Math.Min( 14, 6 + (int)MathF.Round( s * 6f ) );
+			for ( int i = 0; i < dropletCount; i++ )
+			{
+				var dir = RandomHorizontalDir() + Vector3.Up * (0.35f + Random.Shared.NextSingle() * 0.6f);
+				var speed = (110f + Random.Shared.NextSingle() * 170f) * s;
+				SpawnBloodDroplet( center, dir * speed, groundZ );
+			}
+		}
+		catch { }
+	}
+
+	static void SpawnBloodDroplet( Vector3 position, Vector3 velocity, float groundZ )
+	{
+		var go = new GameObject( true, "FxBlood" ) { WorldPosition = position };
+
+		var renderer = go.Components.Create<ModelRenderer>();
+		renderer.Model = BloodModel;
+		// Wider dark-to-bright red range (near-black clots to bright arterial red) reads more like
+		// real blood than the previous narrow, uniformly-muddy tint band.
+		var dark = Random.Shared.NextSingle();
+		renderer.Tint = new Color( 0.22f + dark * 0.35f, 0.01f + dark * 0.02f, 0.02f, 1f );
+
+		// Flattened and stretched along the velocity direction instead of a uniform cube - reads as
+		// a streaking droplet rather than a tumbling little box.
+		var speedT = System.Math.Clamp( velocity.Length / 260f, 0f, 1f );
+		var baseScale = 0.075f + Random.Shared.NextSingle() * 0.05f;
+		go.WorldScale = new Vector3( baseScale * (1f + speedT * 0.8f), baseScale * 0.7f, baseScale * 0.55f );
+
+		if ( velocity.Length > 1f )
+		{
+			try { go.WorldRotation = Rotation.LookAt( velocity.Normal, Vector3.Up ); }
+			catch { }
+		}
+
+		var fx = go.Components.Create<FxDebris>();
+		fx.Duration = 0.7f + Random.Shared.NextSingle() * 0.35f;
+		fx.Velocity = velocity;
+		fx.Gravity = 750f;
+		fx.Drag = 1.1f;
+		fx.SplatOnGround = true;
+		fx.GroundZ = groundZ;
 	}
 
 	static void SpawnLightBurst( Vector3 position, Color color, float radius, float duration )

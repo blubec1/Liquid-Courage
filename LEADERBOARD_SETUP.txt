@@ -1,0 +1,64 @@
+LEADERBOARD SETUP - to return real data
+=======================================
+
+Current package ident: lastcall.last_call
+(see drunken_bar_fight.sbproj -> "Org": "lastcall", "Ident": "last_call")
+
+WHY IT RETURNS NOTHING TODAY
+----------------------------
+Stats.SetValue("score", ...) submits to whatever package the code runs as
+(now lastcall.last_call), but GetFromStat(GameIdent, ...) reads from GameIdent,
+which is still "local.drunken_bar_fight". Nothing named that exists, so the
+board comes back empty and DeathScreen shows "Unavailable".
+
+The write and the read must target the SAME package ident.
+
+CODE EDITS
+----------
+1. Code/Leaderboard/LeaderboardService.cs:20
+   GameIdent = "local.drunken_bar_fight"  ->  GameIdent = "lastcall.last_call"
+   (must match the published ident exactly)
+
+2. Update the stale class doc comment (LeaderboardService.cs:12-15) and the
+   constant's summary (:19) that still say "local" / "drunken_bar_fight".
+
+3. SETUP.md:43-46 - update the "Register the leaderboard" note to the real
+   org/ident.
+
+MANUAL STEPS (editor / web)
+---------------------------
+4. Publish under org "lastcall", ident "last_call":
+   Project menu -> Publish Project... -> Upload -> Publish New Revision.
+   "Hidden" is fine as a playtest channel (hidden packages still resolve by
+   ident); "Released" makes it public.
+
+5. Optional but recommended: on sbox.game -> your package -> Services -> Stats,
+   define the "score" stat (title/description/unit) and set its aggregation to
+   Max. Stats work without this, but this gives display info and the board's
+   default aggregation. The code's SetAggregationMax() only overrides the
+   in-game query; the web view needs ?aggregation=max.
+
+6. Play a full run (die) in the published/playtest build so a SetValue actually
+   lands.
+
+7. Verify:
+   https://public.facepunch.com/sbox/package/lastcall.last_call/leaderboard/score/?aggregation=max
+   Should then show TotalEntries + Entries.
+   The death screen should show "#rank of total".
+
+AFTER THE EDIT
+--------------
+   dotnet build "C:\PROJECTS\Liquid-Courage\Code\drunken_bar_fight.csproj"
+   (expect 0 errors)
+
+NOTES / CAVEATS
+---------------
+- GetFromStat returns Board2; its Entry has no Me field, which is why we match
+  the local row by SteamId.
+- The web endpoint returns {"Stat":"score"} both for an unpublished package and
+  for a published one with no submissions, so it cannot distinguish the two.
+  The in-game rank is the real test.
+- Heads-up: drunken_bar_fight.sbproj "Metadata" is now empty ({}), i.e. no
+  "StartupScene". That can change what Play loads - confirm before playtesting.
+- The package ident must match EXACTLY (case, spelling). Confirm against the
+  URL sbox.game/lastcall/last_call -> ident "lastcall.last_call".

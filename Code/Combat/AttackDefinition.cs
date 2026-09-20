@@ -33,7 +33,7 @@ public class AttackDefinition
 	/// <summary>Total width of the hit arc in degrees, centered on the player's facing direction.</summary>
 	public float ArcDegrees;
 
-	/// <summary>How strong the impact feedback is (0-1). Drives freeze-frame length, screenshake and enemy knockback scaling.</summary>
+	/// <summary>How strong the impact feedback is (0-1). Drives screenshake and enemy knockback scaling.</summary>
 	public float ImpactStrength;
 
 	/// <summary>Knockback speed applied to whatever it hits.</summary>
@@ -58,6 +58,27 @@ public class AttackDefinition
 
 	/// <summary>When true, player movement and facing are frozen for the duration of this attack.</summary>
 	public bool DisableMovement;
+
+	/// <summary>
+	/// 0 = off. When set, this attack also pushes every living enemy within this radius of the
+	/// player - regardless of facing/arc, and regardless of whether they were also hit by the normal
+	/// Range/ArcDegrees check above - directly away from the player (not the attacker's facing
+	/// direction). Built for Kick: a plain arc-based knockback only ever pushed the front row, and
+	/// the untouched enemies behind them acted as a wall the front row's knockback slid straight
+	/// into, so nothing visibly moved. Pushing the whole crowd within this radius at once means there
+	/// is no stationary wall left to block anyone.
+	/// </summary>
+	public float RadialPushRadius;
+
+	/// <summary>Empty/null = pick a sound off ImpactStrength's thresholds as normal (see
+	/// HitFeedback.PlayImpactSound). Set this to force a specific impact cue instead - used by Kick,
+	/// which wants the light-punch sound even though its ImpactStrength (tuned for shake feel, not
+	/// sound selection) would otherwise land it in the "medium" bucket.</summary>
+	public string ImpactSoundOverride;
+
+	/// <summary>Whoosh cue played the instant this attack is thrown - even on a whiff - as opposed to
+	/// ImpactSoundOverride which only fires when something is actually hit. See HitFeedback.PlaySwing.</summary>
+	public string SwingSound;
 }
 
 public static class AttackLibrary
@@ -76,9 +97,17 @@ public static class AttackLibrary
 			Range = 65,
 			ArcDegrees = 100,
 			ImpactStrength = 0.25f,
-			Knockback = 90,
+			Knockback = 60,
 			StaggerTime = 0.18f,
+			SwingSound = "sounds/combat/swing_light.sound",
 		},
+		// A "get off me" panic button with real damage behind it - the wide arc and huge knockback
+		// clear space, but the kick also pays out, so it's never a pure zero-damage push. The
+		// guarantee that kicked enemies can't immediately hit back is still StaggerTime, not
+		// distance: EnemyBase freezes an enemy's whole AI (including attack resolution) for
+		// StaggerTime regardless of where the knockback leaves it. Damage also feeds the ragdoll
+		// kill toss (see EnemyBase.RagdollDamageImpulseScale), so a killing kick visibly launches
+		// the body instead of just dropping it in place.
 		[AttackId.Kick] = new()
 		{
 			Id = AttackId.Kick,
@@ -87,14 +116,20 @@ public static class AttackLibrary
 			Animation = "Roundhouse_Kick_2",
 			AnimationDuration = 0.6f,
 			Name = "Kick",
-			Damage = 13,
+			Damage = 15,
 			Cooldown = 0.44f,
 			Recovery = 0.18f,
 			Range = 80,
-			ArcDegrees = 90,
-			ImpactStrength = 0.5f,
-			Knockback = 220,
-			StaggerTime = 0.32f,
+			ArcDegrees = 150,
+			ImpactStrength = 0.4f,
+			Knockback = 600,
+			StaggerTime = 0.65f,
+			// Radial push now matches the hit Range exactly (both 80) - the knockback reaches no
+			// further than the arc that damages, so the shove is honest to what you actually hit.
+			RadialPushRadius = 80,
+			// User-requested: kick uses the same impact sound as the light punch.
+			ImpactSoundOverride = "sounds/combat/light_impact.sound",
+			SwingSound = "sounds/combat/swing_kick.sound",
 		},
 		[AttackId.Heavy] = new()
 		{
@@ -102,7 +137,7 @@ public static class AttackLibrary
 			Animation = "Hook_Punch_2",
 			AnimationDuration = 0.6f,
 			Name = "Heavy",
-			Damage = 28,
+			Damage = 27,
 			Cooldown = 0.9f,
 			Recovery = 0.35f,
 			Range = 95,
@@ -110,6 +145,7 @@ public static class AttackLibrary
 			ImpactStrength = 1f,
 			Knockback = 380,
 			StaggerTime = 0.55f,
+			SwingSound = "sounds/combat/swing_heavy.sound",
 		},
 	};
 

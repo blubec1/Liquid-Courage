@@ -1,5 +1,6 @@
 @using Sandbox;
 @using Sandbox.UI;
+@using System;
 @using DrunkenBarFight;
 @inherits PanelComponent
 @namespace DrunkenBarFight
@@ -7,19 +8,19 @@
 <root>
 	<div class="pause-root @(Visible ? "visible" : "")">
 
-		<div class="panel">
+		<div class="panel" style="box-shadow:@(PanelBoxShadow); transform:scale(@(PanelPulse.ToString( "0.###" )));">
 
 			<div class="corner corner-tl"></div>
 			<div class="corner corner-tr"></div>
 			<div class="corner corner-bl"></div>
 			<div class="corner corner-br"></div>
 
-			<div class="title">PAUSED</div>
+			<div class="title" style="text-shadow:@(TitleTextShadow);">PAUSED</div>
 
 			@if ( _screen == MenuScreen.Root )
 			{
 				<div class="nav">
-					<div class="nav-button primary" onclick="@ResumeClicked">RESUME</div>
+					<div class="nav-button primary" style="box-shadow:0 0 @(ResumeGlowSize.ToString( "0.#" ))px rgba(224,48,58,@(ResumeGlowAlpha.ToString( "0.##" )));" onclick="@ResumeClicked">RESUME</div>
 					<div class="nav-button" onclick="@GoToHowToPlay">HOW TO PLAY</div>
 					<div class="nav-button" onclick="@GoToSettings">SETTINGS</div>
 					<div class="nav-button quit" onclick="@QuitClicked">QUIT TO MENU</div>
@@ -36,8 +37,9 @@
 					<div class="control-row"><div class="key">LMB</div><div class="desc">Punch</div></div>
 					<div class="control-row"><div class="key">RMB</div><div class="desc">Heavy Attack</div></div>
 					<div class="control-row"><div class="key">E</div><div class="desc">Leg Sweep (90&deg; arc)</div></div>
+					<div class="control-row"><div class="key">F</div><div class="desc">Sober Up (temp weaken)</div></div>
 					<div class="control-row"><div class="key">G</div><div class="desc">Throw Bottle</div></div>
-					<div class="control-row"><div class="key">Esc</div><div class="desc">Pause</div></div>
+					<div class="control-row"><div class="key">Tab</div><div class="desc">Pause</div></div>
 				</div>
 
 				<div class="nav-button back" onclick="@GoToRoot">BACK</div>
@@ -53,6 +55,24 @@
 						<div class="stepper-button" onclick="@VolumeDown">-</div>
 						<div class="setting-bar-bg"><div class="setting-bar-fill" style="width:@((Settings.MasterVolume * 100).ToString( "0.##" ))%;"></div></div>
 						<div class="stepper-button" onclick="@VolumeUp">+</div>
+					</div>
+				</div>
+
+				<div class="setting-row">
+					<div class="setting-label">SFX Volume</div>
+					<div class="setting-control">
+						<div class="stepper-button" onclick="@SfxVolumeDown">-</div>
+						<div class="setting-bar-bg"><div class="setting-bar-fill" style="width:@((Settings.SfxVolume * 100).ToString( "0.##" ))%;"></div></div>
+						<div class="stepper-button" onclick="@SfxVolumeUp">+</div>
+					</div>
+				</div>
+
+				<div class="setting-row">
+					<div class="setting-label">Music Volume</div>
+					<div class="setting-control">
+						<div class="stepper-button" onclick="@MusicVolumeDown">-</div>
+						<div class="setting-bar-bg"><div class="setting-bar-fill" style="width:@((Settings.MusicVolume * 100).ToString( "0.##" ))%;"></div></div>
+						<div class="stepper-button" onclick="@MusicVolumeUp">+</div>
 					</div>
 				</div>
 
@@ -93,30 +113,110 @@
 
 	public string ResolutionLabel => Settings.ResolutionLabel( Settings.ResolutionIndex );
 
+	// --- Ambient "alive" motion - same Time.Now-driven-inline-style approach as MainMenu.razor
+	// (and Hud.razor before it). Kept subtler than the main menu since this overlays live gameplay
+	// and shouldn't be distracting. ---
+
+	public float PanelPulse => 1f + MathF.Sin( Time.Now * 1.4f ) * 0.006f;
+
+	float TitleGlowAlpha => 0.4f + MathF.Sin( Time.Now * 1.8f ) * 0.18f;
+	public string TitleTextShadow => $"0 2px 10px black, 0 0 18px rgba(224,48,58,{TitleGlowAlpha.ToString( "0.##" )})";
+
+	float PanelGlowAlpha => 0.1f + MathF.Sin( Time.Now * 1f ) * 0.06f;
+	public string PanelBoxShadow => $"0 10px 40px rgba(0,0,0,0.6), 0 0 26px rgba(224,48,58,{PanelGlowAlpha.ToString( "0.##" )})";
+
+	public float ResumeGlowAlpha => 0.22f + MathF.Sin( Time.Now * 2.2f ) * 0.16f;
+	public float ResumeGlowSize => 14f + MathF.Sin( Time.Now * 2.2f ) * 7f;
+
+	// Every button on this screen plays the same UI click cue as the first line of its handler -
+	// simplest, lowest-risk way to cover every onclick in this file without introducing an
+	// unproven inline-lambda-in-markup pattern this codebase has no precedent for.
 	void ResumeClicked()
 	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
 		_screen = MenuScreen.Root;
 		GameManager.Instance?.TogglePause();
 	}
 
 	void QuitClicked()
 	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
 		_screen = MenuScreen.Root;
 		GameManager.Instance?.QuitToMenu();
 	}
 
-	void GoToHowToPlay() => _screen = MenuScreen.HowToPlay;
-	void GoToSettings() => _screen = MenuScreen.Settings;
-	void GoToRoot() => _screen = MenuScreen.Root;
+	void GoToHowToPlay()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		_screen = MenuScreen.HowToPlay;
+	}
 
-	void VolumeDown() => Settings.SetMasterVolume( Settings.MasterVolume - 0.1f );
-	void VolumeUp() => Settings.SetMasterVolume( Settings.MasterVolume + 0.1f );
+	void GoToSettings()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		_screen = MenuScreen.Settings;
+	}
 
-	void CycleResolution() => Settings.CycleResolution();
-	void ToggleFullscreen() => Settings.SetFullscreen( !Settings.Fullscreen );
+	void GoToRoot()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		_screen = MenuScreen.Root;
+	}
 
+	void VolumeDown()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.SetMasterVolume( Settings.MasterVolume - 0.1f );
+	}
+
+	void VolumeUp()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.SetMasterVolume( Settings.MasterVolume + 0.1f );
+	}
+
+	void SfxVolumeDown()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.SetSfxVolume( Settings.SfxVolume - 0.1f );
+	}
+
+	void SfxVolumeUp()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.SetSfxVolume( Settings.SfxVolume + 0.1f );
+	}
+
+	void MusicVolumeDown()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.SetMusicVolume( Settings.MusicVolume - 0.1f );
+	}
+
+	void MusicVolumeUp()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.SetMusicVolume( Settings.MusicVolume + 0.1f );
+	}
+
+	void CycleResolution()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.CycleResolution();
+	}
+
+	void ToggleFullscreen()
+	{
+		GameSettings.PlaySound( "sounds/ui/click.sound" );
+		Settings.SetFullscreen( !Settings.Fullscreen );
+	}
+
+	// Time bucket forces ~12Hz rebuilds while paused so the glow/pulse inline styles above actually
+	// animate - see MainMenu.razor's BuildHash for the same technique and its reasoning.
 	protected override int BuildHash() => System.HashCode.Combine(
-		Visible, _screen, Settings.MasterVolume, Settings.ResolutionIndex, Settings.Fullscreen );
+		Visible, _screen, Settings.MasterVolume, Settings.SfxVolume, Settings.MusicVolume,
+		Settings.ResolutionIndex, Settings.Fullscreen,
+		Visible ? (int)(Time.Now * 12) : 0 );
 }
 
 <style>
@@ -151,7 +251,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: stretch;
-		box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+		transition: transform 0.2s ease;
 	}
 
 	.corner {
@@ -195,7 +295,7 @@
 		font-weight: 900;
 		letter-spacing: 4px;
 		margin-bottom: 20px;
-		text-shadow: 0 2px 10px black, 0 0 20px rgba(224,48,58,0.5);
+		text-align: center;
 	}
 
 	.nav {
@@ -214,6 +314,10 @@
 		border-radius: 6px;
 		cursor: pointer;
 		margin-bottom: 10px;
+		text-align: center;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		transition: background-color 0.15s ease, transform 0.15s ease;
 	}
 
@@ -257,6 +361,7 @@
 		font-weight: 800;
 		letter-spacing: 3px;
 		margin-bottom: 14px;
+		text-align: center;
 	}
 
 	.controls {
@@ -375,5 +480,6 @@
 		font-style: italic;
 		line-height: 1.4;
 		margin-bottom: 14px;
+		text-align: center;
 	}
 </style>
