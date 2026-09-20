@@ -5,10 +5,13 @@
   "Ident": "last_call",
   "Schema": 1,
   "IncludeSourceFiles": false,
-  "Resources": null,
+  "Resources": "materials/text.png",
   "PackageReferences": [],
   "EditorReferences": null,
   "Mounts": null,
   "IsStandaloneOnly": false,
-  "Metadata": {}
+  "Metadata": {
+    "StartupScene": "scenes/bar.scene",
+    "LaunchMode": "Normal"
+  }
 }

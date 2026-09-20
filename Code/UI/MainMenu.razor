@@ -32,8 +32,7 @@
 			@if ( _screen != MenuScreen.Customize )
 			{
 				<div class="title-wrap">
-					<div class="title-line1" style="transform:scale(@(TitlePulse.ToString( "0.###" ))); text-shadow:@(TitleTextShadowSmall);">LAST</div>
-					<div class="title-line2" style="transform:scale(@(TitlePulse.ToString( "0.###" ))); text-shadow:@(TitleTextShadow);">ROUND</div>
+					<div class="title-image" style="filter:drop-shadow(0 2px 10px black) drop-shadow(0 0 24px rgba(224,48,58,@(TitleGlowAlpha.ToString( "0.##" ))));"></div>
 				</div>
 			}
 
@@ -52,15 +51,6 @@
 				<div class="sub-title">CUSTOMIZE</div>
 
 				<div class="customize-list">
-					<div class="customize-row">
-						<div class="customize-label">SKIN</div>
-						<div class="customize-control">
-							<div class="stepper-button" onclick="@SkinPrev">&lt;</div>
-							<div class="customize-value">@SkinLabel</div>
-							<div class="stepper-button" onclick="@SkinNext">&gt;</div>
-						</div>
-					</div>
-
 					<div class="customize-row">
 						<div class="customize-label">TOP</div>
 						<div class="customize-control">
@@ -221,11 +211,7 @@
 	// actually render in practice, so every continuously-moving value on this screen is computed
 	// per-frame in code instead of left to a CSS animation loop. ---
 
-	public float TitlePulse => 1f + MathF.Sin( Time.Now * 1.6f ) * 0.015f;
-
 	float TitleGlowAlpha => 0.55f + MathF.Sin( Time.Now * 2.1f ) * 0.25f;
-	public string TitleTextShadow => $"0 2px 10px black, 0 0 24px rgba(224,48,58,{TitleGlowAlpha.ToString( "0.##" )})";
-	public string TitleTextShadowSmall => $"0 2px 8px black, 0 0 16px rgba(224,48,58,{(TitleGlowAlpha * 0.8f).ToString( "0.##" )})";
 
 	float PanelGlowAlpha => 0.16f + MathF.Sin( Time.Now * 1.1f ) * 0.09f;
 	public string PanelBoxShadow => $"0 10px 40px rgba(0,0,0,0.55), 0 0 34px rgba(224,48,58,{PanelGlowAlpha.ToString( "0.##" )})";
@@ -358,15 +344,12 @@
 
 	PlayerOutfit Outfit => PlayerOutfit.Instance;
 
-	string SkinLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Skin ) ?? "Default";
 	string TopLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Top ) ?? "None";
 	string BottomLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Bottom ) ?? "None";
 	string ShoesLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Shoes ) ?? "None";
 	string HeadLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Head ) ?? "None";
 	string AccessoryLabel => Outfit.GetSelectedTitle( PlayerOutfit.Slot.Accessory ) ?? "None";
 
-	void SkinPrev() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CyclePrev( PlayerOutfit.Slot.Skin ); }
-	void SkinNext() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CycleNext( PlayerOutfit.Slot.Skin ); }
 	void TopPrev() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CyclePrev( PlayerOutfit.Slot.Top ); }
 	void TopNext() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CycleNext( PlayerOutfit.Slot.Top ); }
 	void BottomPrev() { GameSettings.PlaySound( "sounds/ui/click.sound" ); Outfit.CyclePrev( PlayerOutfit.Slot.Bottom ); }
@@ -588,26 +571,13 @@
 		padding: 8px 0 4px 0;
 	}
 
-	.title-line1, .title-line2 {
-		font-weight: 900;
-		white-space: nowrap;
-		text-align: center;
-		width: 100%;
-		color: white;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.title-line1 {
-		font-size: 26px;
-		letter-spacing: 10px;
-		margin-bottom: 4px;
-	}
-
-	.title-line2 {
-		font-size: 46px;
-		letter-spacing: 5px;
+	.title-image {
+		background-image: url( "materials/text.png" );
+		background-repeat: no-repeat;
+		background-position: center;
+		background-size: contain;
+		width: 1920px;
+		height: 384px;
 	}
 
 	.nav {
