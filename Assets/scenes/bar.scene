@@ -1042,7 +1042,7 @@
       "__version": 2,
       "Flags": 0,
       "Name": "Bottle_1",
-      "Position": "500,500,20",
+      "Position": "-155.372131,500,732.097839",
       "Rotation": "0,0,0,1",
       "Scale": "1,1,1",
       "Tags": "",
@@ -1073,54 +1073,7 @@
           "Visual": null
         }
       ],
-      "Children": [
-        {
-          "__guid": "0d24a3c4-ccd9-48d9-99b3-e0ba5e404b94",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Visual",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "0.119999997,0.119999997,0.119999997",
-          "Tags": "",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "Sandbox.ModelRenderer",
-              "__guid": "321462db-18ef-4005-8bd0-83a3223e8cd5",
-              "__enabled": true,
-              "Flags": 0,
-              "BodyGroups": 18446744073709551615,
-              "CreateAttachments": false,
-              "LodOverride": null,
-              "MaterialGroup": null,
-              "MaterialOverride": "materials/default.vmat",
-              "Materials": null,
-              "Model": "models/dev/box.vmdl",
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "RenderOptions": {
-                "GameLayer": true,
-                "OverlayLayer": false,
-                "BloomLayer": false,
-                "AfterUILayer": false
-              },
-              "RenderType": "On",
-              "Tint": "0.5,0.85,0.4,1"
-            }
-          ],
-          "Children": []
-        }
-      ]
+      "Children": []
     },
     {
       "__guid": "454129dc-c263-4cb9-9ac4-dc33acb6db41",
@@ -1178,91 +1131,6 @@
             {
               "__type": "Sandbox.ModelRenderer",
               "__guid": "03879453-a3ad-4301-bc4d-44af300f54dc",
-              "__enabled": true,
-              "Flags": 0,
-              "BodyGroups": 18446744073709551615,
-              "CreateAttachments": false,
-              "LodOverride": null,
-              "MaterialGroup": null,
-              "MaterialOverride": "materials/default.vmat",
-              "Materials": null,
-              "Model": "models/dev/box.vmdl",
-              "OnComponentDestroy": null,
-              "OnComponentDisabled": null,
-              "OnComponentEnabled": null,
-              "OnComponentFixedUpdate": null,
-              "OnComponentStart": null,
-              "OnComponentUpdate": null,
-              "RenderOptions": {
-                "GameLayer": true,
-                "OverlayLayer": false,
-                "BloomLayer": false,
-                "AfterUILayer": false
-              },
-              "RenderType": "On",
-              "Tint": "0.5,0.85,0.4,1"
-            }
-          ],
-          "Children": []
-        }
-      ]
-    },
-    {
-      "__guid": "6595d762-28f9-4b61-bb9a-d5f039ff771c",
-      "__version": 2,
-      "Flags": 0,
-      "Name": "Bottle_3",
-      "Position": "0,-600,20",
-      "Rotation": "0,0,0,1",
-      "Scale": "1,1,1",
-      "Tags": "",
-      "Enabled": true,
-      "NetworkMode": 2,
-      "NetworkFlags": 0,
-      "NetworkOrphaned": 0,
-      "NetworkTransmit": true,
-      "OwnerTransfer": 1,
-      "Components": [
-        {
-          "__type": "DrunkenBarFight.ThrowableBottle",
-          "__guid": "51823f7d-96d1-4041-8d85-9876334eb46a",
-          "__enabled": true,
-          "Flags": 0,
-          "InteractRadius": 75,
-          "OnComponentDestroy": null,
-          "OnComponentDisabled": null,
-          "OnComponentEnabled": null,
-          "OnComponentFixedUpdate": null,
-          "OnComponentStart": null,
-          "OnComponentUpdate": null,
-          "RespawnDelay": 8,
-          "ThrowDamage": 24,
-          "ThrowKnockback": 260,
-          "ThrowRange": 650,
-          "ThrowSpeed": 900,
-          "Visual": null
-        }
-      ],
-      "Children": [
-        {
-          "__guid": "290a83ca-11d1-48d7-b744-97d7171b897d",
-          "__version": 2,
-          "Flags": 0,
-          "Name": "Visual",
-          "Position": "0,0,0",
-          "Rotation": "0,0,0,1",
-          "Scale": "0.119999997,0.119999997,0.119999997",
-          "Tags": "",
-          "Enabled": true,
-          "NetworkMode": 2,
-          "NetworkFlags": 0,
-          "NetworkOrphaned": 0,
-          "NetworkTransmit": true,
-          "OwnerTransfer": 1,
-          "Components": [
-            {
-              "__type": "Sandbox.ModelRenderer",
-              "__guid": "5c3e8d8e-f390-4902-8383-abd4b7ef1dd4",
               "__enabled": true,
               "Flags": 0,
               "BodyGroups": 18446744073709551615,
@@ -5911,7 +5779,7 @@
       "Position": "-1152,1368,568",
       "Rotation": "0,0,0,1",
       "Scale": "1,1,1",
-      "Tags": "playerblocker",
+      "Tags": "playerblocker,world",
       "Enabled": true,
       "NetworkMode": 2,
       "NetworkFlags": 0,
@@ -6126,6 +5994,134 @@
         }
       ],
       "Children": []
+    },
+    {
+      "__guid": "88f70f79-3fdd-4701-aafe-e752a8b6871a",
+      "__version": 2,
+      "Flags": 0,
+      "Name": "beer_bottle",
+      "Position": "-1584.50928,517.122375,538.124512",
+      "Rotation": "0,0,0,1",
+      "Scale": "1,1,1",
+      "Tags": "",
+      "Enabled": true,
+      "NetworkMode": 2,
+      "NetworkFlags": 0,
+      "NetworkOrphaned": 0,
+      "NetworkTransmit": true,
+      "OwnerTransfer": 1,
+      "Components": [
+        {
+          "__type": "Sandbox.Prop",
+          "__guid": "87925a5c-1881-41fa-9778-bedfd12dc93d",
+          "__enabled": true,
+          "Flags": 0,
+          "BodyGroups": 18446744073709551615,
+          "Health": 1,
+          "IsStatic": false,
+          "MaterialGroup": null,
+          "Model": "models/sbox_props/beer_bottle/beer_bottle.vmdl",
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null,
+          "OnGibsCreated": null,
+          "OnPropBreak": null,
+          "OnPropTakeDamage": null,
+          "StartAsleep": false,
+          "Tint": "1,1,1,1"
+        },
+        {
+          "__type": "Sandbox.ModelRenderer",
+          "__guid": "369ca4a8-ac7f-4626-94f4-edb2e7dbaf2d",
+          "__enabled": true,
+          "Flags": 0,
+          "BodyGroups": 18446744073709551615,
+          "CreateAttachments": false,
+          "LodOverride": null,
+          "MaterialGroup": null,
+          "MaterialOverride": null,
+          "Materials": null,
+          "Model": "models/sbox_props/beer_bottle/beer_bottle.vmdl",
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null,
+          "RenderOptions": {
+            "GameLayer": true,
+            "OverlayLayer": false,
+            "BloomLayer": false,
+            "AfterUILayer": false
+          },
+          "RenderType": "On",
+          "Tint": "1,1,1,1"
+        },
+        {
+          "__type": "Sandbox.ModelCollider",
+          "__guid": "1845abd9-7fc1-4f44-b945-bc7c1ce19984",
+          "__enabled": true,
+          "Flags": 0,
+          "ColliderFlags": 0,
+          "Elasticity": null,
+          "Friction": null,
+          "IsTrigger": false,
+          "Model": "models/sbox_props/beer_bottle/beer_bottle.vmdl",
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null,
+          "OnObjectTriggerEnter": null,
+          "OnObjectTriggerExit": null,
+          "OnTriggerEnter": null,
+          "OnTriggerExit": null,
+          "RollingResistance": null,
+          "Static": false,
+          "Surface": null,
+          "SurfaceVelocity": "0,0,0"
+        },
+        {
+          "__type": "Sandbox.Rigidbody",
+          "__guid": "32ef4c8a-248f-480b-873c-87a2f3cd2b55",
+          "__enabled": true,
+          "Flags": 0,
+          "AngularDamping": 0,
+          "EnableImpactDamage": true,
+          "EnhancedCcd": false,
+          "Gravity": true,
+          "GravityScale": 1,
+          "ImpactDamage": 0,
+          "LinearDamping": 0,
+          "Locking": {
+            "X": false,
+            "Y": false,
+            "Z": false,
+            "Pitch": false,
+            "Yaw": false,
+            "Roll": false
+          },
+          "MassCenterOverride": "0,0,0",
+          "MassOverride": 0,
+          "MinImpactDamageSpeed": 500,
+          "MotionEnabled": true,
+          "OnComponentDestroy": null,
+          "OnComponentDisabled": null,
+          "OnComponentEnabled": null,
+          "OnComponentFixedUpdate": null,
+          "OnComponentStart": null,
+          "OnComponentUpdate": null,
+          "OverrideMassCenter": false,
+          "RigidbodyFlags": 0,
+          "SleepThreshold": 2,
+          "StartAsleep": false
+        }
+      ],
+      "Children": []
     }
   ],
   "SceneProperties": {
@@ -6168,6 +6164,8 @@
   "ResourceVersion": 3,
   "Title": "bar",
   "Description": "Drunken Bar Fight - main arena",
-  "__references": [],
+  "__references": [
+    "facepunch.beer_bottle#33584"
+  ],
   "__version": 3
 }

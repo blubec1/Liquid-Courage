@@ -73,6 +73,17 @@ public abstract class EnemyBase : Component
 	float _nextAttackReady;
 	bool _isWindingUp;
 	float _windupEndTime;
+
+	// Grace window after this enemy first becomes close enough to attack, before it's actually
+	// allowed to swing - without this, an enemy that closed the gap right as its cooldown happened
+	// to be ready could hit the player the instant it entered range, with zero warning. Similar idea
+	// to AttackWindup, but keyed off "time since entering range" rather than "time since deciding to
+	// swing", so it also covers windup-less archetypes (Brawler, SoberingBartender). Kept short on
+	// purpose - this is meant to give a fair beat to react, not add a second real windup on top of
+	// the existing one.
+	const float MinTimeInRangeBeforeAttack = 0.1f;
+	bool _wasInAttackRange;
+	float _inAttackRangeSince = -999f;
 	Vector3 _knockbackVelocity;
 	// Smoothed heading for the non-NavMesh movement fallback (see UpdateAi) - without this, moveDir
 	// is recomputed fresh every frame straight from raw direction-to-player + separation, so it can
@@ -562,7 +573,14 @@ public abstract class EnemyBase : Component
 		toPlayer = new Vector3( toPlayer.x, toPlayer.y, 0 );
 		var dist = toPlayer.Length;
 
-		if ( dist <= AttackRange && Time.Now >= _nextAttackReady )
+		// Tracks how long this enemy has been continuously close enough to attack, reset the instant
+		// it steps back out of range - see MinTimeInRangeBeforeAttack's comment for why.
+		var inRangeNow = dist <= AttackRange;
+		if ( inRangeNow && !_wasInAttackRange )
+			_inAttackRangeSince = Time.Now;
+		_wasInAttackRange = inRangeNow;
+
+		if ( dist <= AttackRange && Time.Now >= _nextAttackReady && Time.Now >= _inAttackRangeSince + MinTimeInRangeBeforeAttack )
 		{
 			FacePoint( player.WorldPosition );
 

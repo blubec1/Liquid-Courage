@@ -12,6 +12,15 @@ namespace DrunkenBarFight;
 /// </summary>
 public static class HitDetector
 {
+	// Small forgiveness margin applied on top of every attack's own Range/ArcDegrees. Hit detection
+	// here is a single instant check the moment the attack resolves, not a real window over time -
+	// so a swing that's a hair short on distance or angle (the enemy took one more step, or the
+	// player's aim was a few degrees off) whiffed even though it visually looked like it should have
+	// connected. These are deliberately small - this is meant to feel forgiving, not turn every
+	// attack into a noticeably bigger hitbox than what the swing shows.
+	const float RangeMarginUnits = 10f;
+	const float ArcMarginDegrees = 10f;
+
 	public static List<EnemyBase> FindEnemies( Vector3 origin, Vector3 facing, float range, float arcDegrees )
 	{
 		var results = new List<(EnemyBase enemy, float dist)>();
@@ -23,8 +32,9 @@ public static class HitDetector
 		else
 			flatFacing /= facingLen;
 
-		var halfArcRad = (arcDegrees * 0.5f) * (MathF.PI / 180f);
 		var useFullCircle = arcDegrees >= 359.9f;
+		var effectiveRange = range + RangeMarginUnits;
+		var halfArcRad = (useFullCircle ? arcDegrees : arcDegrees + ArcMarginDegrees) * 0.5f * (MathF.PI / 180f);
 
 		foreach ( var enemy in EnemyBase.All )
 		{
@@ -35,7 +45,7 @@ public static class HitDetector
 			var flat = new Vector3( toEnemy.x, toEnemy.y, 0 );
 			var dist = flat.Length;
 
-			if ( dist > range )
+			if ( dist > effectiveRange )
 				continue;
 
 			if ( !useFullCircle )

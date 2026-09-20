@@ -224,13 +224,17 @@ public static class Vfx
 	}
 
 	/// <summary>Festive multi-color firework when the player drinks a glass - a little celebration
-	/// for the run's core loop moment.</summary>
+	/// for the run's core loop moment. Bumped bigger/richer on request: a brighter core flash, a
+	/// wider main ring (more sparks, more spread, longer-lived), plus a second delayed-look outer
+	/// ring (fired immediately but with a lower initial speed and a longer life, so it visually
+	/// trails the first ring outward instead of a single flat pop) for a proper two-stage "fireworks"
+	/// read instead of a single burst.</summary>
 	public static void DrinkCelebration( Vector3 position )
 	{
 		try
 		{
 			var center = position + Vector3.Up * 80f;
-			SpawnLightBurst( center, new Color( 1f, 0.9f, 0.5f ), 46f, 0.3f );
+			SpawnLightBurst( center, new Color( 1f, 0.92f, 0.55f ), 62f, 0.4f );
 
 			var colors = new[]
 			{
@@ -238,15 +242,28 @@ public static class Vfx
 				new Color( 0.9f, 0.25f, 0.3f ),
 				new Color( 0.3f, 0.75f, 1f ),
 				new Color( 0.6f, 1f, 0.4f ),
+				new Color( 1f, 0.55f, 0.85f ),
 			};
 
-			const int scatterCount = 10;
-			for ( int i = 0; i < scatterCount; i++ )
+			// Inner ring - fast, tight, bright. Bumped from 10 to 16 sparks.
+			const int innerCount = 16;
+			for ( int i = 0; i < innerCount; i++ )
 			{
-				var angle = (i / (float)scatterCount) * MathF.PI * 2f;
+				var angle = (i / (float)innerCount) * MathF.PI * 2f;
 				var dir = new Vector3( MathF.Cos( angle ), MathF.Sin( angle ), 0.6f + Random.Shared.NextSingle() * 0.4f );
 				var color = colors[i % colors.Length];
-				SpawnScatterSpark( center, color, 14f, 0.5f + Random.Shared.NextSingle() * 0.3f, dir * (150f + Random.Shared.NextSingle() * 120f) );
+				SpawnScatterSpark( center, color, 15f, 0.55f + Random.Shared.NextSingle() * 0.3f, dir * (160f + Random.Shared.NextSingle() * 130f) );
+			}
+
+			// Outer ring - slower start but travels further and lingers longer, so it reads as a
+			// second wave trailing the inner pop outward rather than everything landing at once.
+			const int outerCount = 10;
+			for ( int i = 0; i < outerCount; i++ )
+			{
+				var angle = ((i + 0.5f) / outerCount) * MathF.PI * 2f;
+				var dir = new Vector3( MathF.Cos( angle ), MathF.Sin( angle ), 0.3f + Random.Shared.NextSingle() * 0.5f );
+				var color = colors[(i + 2) % colors.Length];
+				SpawnScatterSpark( center, color, 10f, 0.8f + Random.Shared.NextSingle() * 0.35f, dir * (240f + Random.Shared.NextSingle() * 100f) );
 			}
 		}
 		catch { }

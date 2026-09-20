@@ -17,7 +17,10 @@ public class DrinkMeter : Component
 	[Property, Group( "Tuning" )] public float ProgressPerKill { get; set; } = 22f;
 	[Property, Group( "Tuning" )] public float ProgressPerToughKillBonus { get; set; } = 15f;
 	[Property, Group( "Tuning" )] public float FreezeDuration { get; set; } = 0.9f;
-	[Property, Group( "Tuning" )] public float HealPerDrink { get; set; } = 20f;
+	// Bumped from 20, then 45 - drinking is the run's core reward loop, and the old values barely
+	// registered against the bar-fight-crowd damage rate. 50 makes a glass a real "get back in the
+	// fight" heal instead of a rounding error on the HP bar.
+	[Property, Group( "Tuning" )] public float HealPerDrink { get; set; } = 50f;
 
 	[Property, Group( "Animation" )] public string DrinkAnimation { get; set; } = "";
 	[Property, Group( "Animation" )] public float DrinkAnimationDuration { get; set; } = 0.9f;
@@ -77,6 +80,12 @@ public class DrinkMeter : Component
 		DrunkennessSystem.Local?.DrinkGlass();
 		PlayerStats.Local?.Heal( HealPerDrink );
 		Vfx.DrinkCelebration( WorldPosition );
+
+		// A satisfying "clink" punch on top of the VFX - small and joyful, not a combat-style jolt.
+		// Routed through GameSettings.PlaySound (not raw Sound.Play) so it respects the master volume
+		// slider exactly like every other cue in the game.
+		GameEvents.RaiseShakeRequested( 5f, 0.25f );
+		GameSettings.PlaySound( "sounds/player/drink.sound" );
 	}
 
 	public void ResetRun()
